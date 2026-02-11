@@ -13,6 +13,7 @@ const { Server } = require('socket.io');
 require('./config/passport');
 const authRoutes = require('./routes/auth');
 const questionRoutes = require('./routes/questions');
+const executeRoutes = require('./routes/execute');
 
 const app = express();
 const server = http.createServer(app);
@@ -63,6 +64,7 @@ mongoose.connect(process.env.MONGO_URI)
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/questions', questionRoutes);
+app.use('/api/execute', executeRoutes);
 
 // Basic route
 app.get('/', (req, res) => {
