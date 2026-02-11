@@ -31,6 +31,12 @@ const Home = () => {
             >
               Practice 🧠
             </button>
+            <button 
+              onClick={() => navigate('/ide')}
+              className="w-full py-3 bg-gray-900 hover:bg-purple-600 transition-colors rounded-lg font-semibold text-sm flex items-center justify-center gap-2"
+            >
+              IDE 💻
+            </button>
           </div>
 
           <div className="mt-12 px-2">

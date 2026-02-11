@@ -6,6 +6,7 @@ import Register from './pages/auth/Register';
 import Home from './pages/deshboard/Home';
 import PracticeHome from './pages/practice/PracticeHome';
 import PracticeArena from './pages/practice/PracticeArena';
+import IDE from './pages/ide/IDE';
 import MatchArena from './pages/match/MatchArena';
 import Matchmaking from './pages/matchmaking/Matchmaking';
 
@@ -53,6 +54,7 @@ export default function App() {
           <Route path="/dashboard" element={<PrivateRoute><Home /></PrivateRoute>} />
           <Route path="/practice" element={<PrivateRoute><PracticeHome /></PrivateRoute>} />
           <Route path="/practice/arena" element={<PrivateRoute><PracticeArena /></PrivateRoute>} />
+          <Route path="/ide" element={<PrivateRoute><IDE /></PrivateRoute>} />
           <Route path="/matchmaking" element={<PrivateRoute><Matchmaking /></PrivateRoute>} />
           <Route path="/arena/:matchId" element={<PrivateRoute><MatchArena /></PrivateRoute>} />
           <Route path="*" element={<Navigate to="/" />} />
