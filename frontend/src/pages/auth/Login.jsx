@@ -21,7 +21,8 @@ const Login = ({ onSwitch }) => {
   };
 
   const handleOAuth = (provider) => {
-    window.location.href = `http://localhost:5000/api/auth/${provider}`;
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+    window.location.href = `${apiUrl}/auth/${provider}`;
   };
 
   return (
