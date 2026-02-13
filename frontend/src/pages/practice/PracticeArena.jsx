@@ -2,9 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import { 
-  Play, Send, ChevronLeft, Settings, Cpu, 
-  MessageSquare, Bot, User, Terminal, BookOpen, 
-  Lightbulb, Clock, Code2, X, Maximize2, Minimize2
+  Play, Send, ChevronLeft, Bot, User, Terminal, 
+  Lightbulb, X, ChevronRight, MessageCircle
 } from 'lucide-react';
 import api from '../../api/axios';
 import DOMPurify from 'dompurify';
@@ -19,13 +18,14 @@ const PracticeArena = () => {
   const [language, setLanguage] = useState('javascript');
   const [output, setOutput] = useState('');
   const [isRunning, setIsRunning] = useState(false);
-  const [activeTab, setActiveTab] = useState('description');
-  const [isAiOpen, setIsAiOpen] = useState(true);
+  const [isQuestionOpen, setIsQuestionOpen] = useState(true);
   const [isTerminalOpen, setIsTerminalOpen] = useState(true);
+  const [isAiOpen, setIsAiOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('description');
 
   // AI Chat State
   const [aiMessages, setAiMessages] = useState([
-    { role: 'assistant', content: 'Hi! I\'m your AI assistant. Stuck on this problem? I can help!' }
+    { role: 'assistant', content: 'Hi! I\'m your AI coding assistant. Ask me anything about this problem!' }
   ]);
   const [aiInput, setAiInput] = useState('');
   const [isAiTyping, setIsAiTyping] = useState(false);
@@ -117,8 +117,6 @@ const PracticeArena = () => {
           <Link to="/dashboard" className="font-bold text-blue-400 hover:text-blue-300">
             CodeArena
           </Link>
-          <span className="text-slate-600">/</span>
-          <span className="text-sm truncate max-w-xs">{question.title}</span>
         </div>
         
         <div className="flex items-center gap-3">
@@ -136,17 +134,34 @@ const PracticeArena = () => {
             disabled={isRunning}
             className="flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white px-4 py-1.5 rounded text-sm font-medium"
           >
-            {isRunning ? <Cpu size={14} className="animate-spin" /> : <Play size={14} />} 
+            {isRunning ? <span className="animate-spin">⚡</span> : <Play size={14} />} 
             Run
           </button>
         </div>
       </nav>
 
       {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden relative">
         
-        {/* Left Panel - Problem */}
-        <div className="w-[450px] bg-slate-900 border-r border-slate-800 flex flex-col">
+        {/* Collapsible Question Panel */}
+        <div className={`${isQuestionOpen ? 'w-[500px]' : 'w-0'} transition-all duration-300 bg-slate-900 border-r border-slate-800 flex flex-col overflow-hidden`}>
+          {/* Question Header */}
+          <div className="p-4 border-b border-slate-800 flex items-center justify-between">
+            <div>
+              <h1 className="text-lg font-bold text-white">{question.title}</h1>
+              <div className="flex items-center gap-2 mt-1">
+                <span className={`text-xs px-2 py-0.5 rounded font-medium ${
+                  question.difficulty === 'Easy' ? 'bg-green-500/20 text-green-400' :
+                  question.difficulty === 'Medium' ? 'bg-yellow-500/20 text-yellow-400' :
+                  'bg-red-500/20 text-red-400'
+                }`}>
+                  {question.difficulty}
+                </span>
+                <span className="text-xs text-slate-500">{question.source}</span>
+              </div>
+            </div>
+          </div>
+
           {/* Tabs */}
           <div className="flex border-b border-slate-800">
             {['description', 'hints'].map(tab => (
@@ -168,17 +183,6 @@ const PracticeArena = () => {
           <div className="flex-1 overflow-y-auto p-5">
             {activeTab === 'description' && (
               <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <h1 className="text-xl font-bold text-white">{question.title}</h1>
-                  <span className={`text-xs px-2 py-1 rounded font-medium ${
-                    question.difficulty === 'Easy' ? 'bg-green-500/20 text-green-400' :
-                    question.difficulty === 'Medium' ? 'bg-yellow-500/20 text-yellow-400' :
-                    'bg-red-500/20 text-red-400'
-                  }`}>
-                    {question.difficulty}
-                  </span>
-                </div>
-
                 <div 
                   className="prose prose-invert prose-sm max-w-none text-slate-300"
                   dangerouslySetInnerHTML={{ 
@@ -189,7 +193,7 @@ const PracticeArena = () => {
                 {question.examples && (
                   <div className="mt-6">
                     <h3 className="text-sm font-semibold text-slate-400 mb-2">Example:</h3>
-                    <div className="bg-slate-950 rounded-lg p-4 font-mono text-sm">
+                    <div className="bg-slate-950 rounded-lg p-4 font-mono text-sm border border-slate-800">
                       <pre className="text-slate-300">{question.examples}</pre>
                     </div>
                   </div>
@@ -198,7 +202,7 @@ const PracticeArena = () => {
                 {question.tags && (
                   <div className="flex flex-wrap gap-2 pt-4">
                     {question.tags.map(tag => (
-                      <span key={tag} className="text-xs bg-slate-800 text-slate-400 px-2 py-1 rounded">
+                      <span key={tag} className="text-xs bg-slate-800 text-slate-400 px-2 py-1 rounded border border-slate-700">
                         {tag}
                       </span>
                     ))}
@@ -211,7 +215,7 @@ const PracticeArena = () => {
               <div className="space-y-3">
                 {question.hints?.length > 0 ? (
                   question.hints.map((hint, i) => (
-                    <div key={i} className="bg-slate-800/50 rounded-lg p-4">
+                    <div key={i} className="bg-slate-800/50 rounded-lg p-4 border border-slate-700">
                       <div className="flex items-center gap-2 text-yellow-500 mb-2">
                         <Lightbulb size={14} />
                         <span className="text-sm font-medium">Hint {i + 1}</span>
@@ -226,6 +230,15 @@ const PracticeArena = () => {
             )}
           </div>
         </div>
+
+        {/* Toggle Question Button */}
+        <button
+          onClick={() => setIsQuestionOpen(!isQuestionOpen)}
+          className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-6 h-20 bg-slate-800 border-y border-r border-slate-700 rounded-r-lg flex items-center justify-center hover:bg-slate-700"
+          style={{ marginLeft: isQuestionOpen ? '500px' : '0' }}
+        >
+          <ChevronRight size={16} className={`transition-transform ${isQuestionOpen ? 'rotate-180' : ''}`} />
+        </button>
 
         {/* Center - Code Editor */}
         <div className="flex-1 flex flex-col min-w-0">
@@ -252,7 +265,7 @@ const PracticeArena = () => {
 
           {/* Terminal */}
           {isTerminalOpen && (
-            <div className="h-40 bg-slate-950 border-t border-slate-800 flex flex-col">
+            <div className="h-48 bg-slate-950 border-t border-slate-800 flex flex-col">
               <div className="flex items-center justify-between px-4 py-2 bg-slate-900 border-b border-slate-800">
                 <span className="text-xs font-medium text-slate-400 flex items-center gap-2">
                   <Terminal size={12} /> Console
@@ -282,38 +295,55 @@ const PracticeArena = () => {
           {!isTerminalOpen && (
             <button 
               onClick={() => setIsTerminalOpen(true)}
-              className="h-8 bg-slate-900 border-t border-slate-800 flex items-center justify-center text-slate-500 hover:text-slate-300"
+              className="h-8 bg-slate-900 border-t border-slate-800 flex items-center justify-center text-slate-500 hover:text-slate-300 gap-2"
             >
-              <Terminal size={14} className="mr-2" /> Show Console
+              <Terminal size={14} /> Show Console
             </button>
           )}
         </div>
 
-        {/* Right Panel - AI */}
+        {/* Floating AI Button */}
+        {!isAiOpen && (
+          <button 
+            onClick={() => setIsAiOpen(true)}
+            className="fixed right-6 bottom-6 w-14 h-14 bg-purple-600 hover:bg-purple-700 rounded-full flex items-center justify-center shadow-lg shadow-purple-600/30 transition-all hover:scale-110 z-50"
+          >
+            <Bot size={24} />
+          </button>
+        )}
+
+        {/* AI Chat Card */}
         {isAiOpen && (
-          <div className="w-80 bg-slate-900 border-l border-slate-800 flex flex-col">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
-              <div className="flex items-center gap-2">
-                <Bot size={18} className="text-purple-400" />
-                <span className="font-medium text-sm">AI Assistant</span>
+          <div className="fixed right-6 bottom-6 w-96 h-[500px] bg-slate-900 rounded-2xl shadow-2xl border border-slate-700 flex flex-col z-50 overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 bg-slate-800 border-b border-slate-700">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center">
+                  <Bot size={18} />
+                </div>
+                <div>
+                  <span className="font-medium text-sm text-white">AI Assistant</span>
+                  <p className="text-xs text-slate-400">Always here to help</p>
+                </div>
               </div>
-              <button onClick={() => setIsAiOpen(false)} className="text-slate-500 hover:text-slate-300">
-                <X size={16} />
+              <button onClick={() => setIsAiOpen(false)} className="text-slate-400 hover:text-white p-1">
+                <X size={18} />
               </button>
             </div>
             
+            {/* Messages */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {aiMessages.map((msg, i) => (
                 <div key={i} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-                  <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
                     msg.role === 'user' ? 'bg-blue-600' : 'bg-purple-600'
                   }`}>
-                    {msg.role === 'user' ? <User size={12} /> : <Bot size={12} />}
+                    {msg.role === 'user' ? <User size={14} /> : <Bot size={14} />}
                   </div>
                   <div className={`max-w-[75%] p-3 rounded-2xl text-sm ${
                     msg.role === 'user' 
                       ? 'bg-blue-600 text-white rounded-br-md' 
-                      : 'bg-slate-800 text-slate-200 rounded-bl-md'
+                      : 'bg-slate-800 text-slate-200 rounded-bl-md border border-slate-700'
                   }`}>
                     {msg.content}
                   </div>
@@ -321,49 +351,41 @@ const PracticeArena = () => {
               ))}
               {isAiTyping && (
                 <div className="flex gap-3">
-                  <div className="w-7 h-7 rounded-full bg-purple-600 flex items-center justify-center">
-                    <Bot size={12} />
+                  <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center">
+                    <Bot size={14} />
                   </div>
-                  <div className="bg-slate-800 p-3 rounded-2xl rounded-bl-md">
+                  <div className="bg-slate-800 p-3 rounded-2xl rounded-bl-md border border-slate-700">
                     <div className="flex gap-1">
-                      <span className="w-1.5 h-1.5 bg-slate-500 rounded-full animate-bounce"></span>
-                      <span className="w-1.5 h-1.5 bg-slate-500 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></span>
-                      <span className="w-1.5 h-1.5 bg-slate-500 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></span>
+                      <span className="w-2 h-2 bg-slate-500 rounded-full animate-bounce"></span>
+                      <span className="w-2 h-2 bg-slate-500 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></span>
+                      <span className="w-2 h-2 bg-slate-500 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></span>
                     </div>
                   </div>
                 </div>
               )}
             </div>
 
-            <div className="p-3 border-t border-slate-800">
+            {/* Input */}
+            <div className="p-4 border-t border-slate-700 bg-slate-800">
               <div className="flex gap-2">
                 <input
                   type="text"
                   value={aiInput}
                   onChange={(e) => setAiInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleAiSend()}
-                  placeholder="Ask anything..."
-                  className="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm outline-none focus:border-purple-500"
+                  placeholder="Ask me anything..."
+                  className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-purple-500 text-white placeholder-slate-500"
                 />
                 <button
                   onClick={handleAiSend}
                   disabled={!aiInput.trim() || isAiTyping}
-                  className="p-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 rounded-lg"
+                  className="p-2.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 rounded-xl transition-colors"
                 >
-                  <Send size={16} />
+                  <Send size={18} />
                 </button>
               </div>
             </div>
           </div>
-        )}
-
-        {!isAiOpen && (
-          <button 
-            onClick={() => setIsAiOpen(true)}
-            className="fixed right-4 bottom-4 w-12 h-12 bg-purple-600 hover:bg-purple-700 rounded-full flex items-center justify-center shadow-lg"
-          >
-            <Bot size={20} />
-          </button>
         )}
       </div>
     </div>
