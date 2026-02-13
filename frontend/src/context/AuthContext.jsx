@@ -13,10 +13,17 @@ export const AuthProvider = ({ children }) => {
 
   const checkUser = async () => {
     try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setUser(null);
+        setLoading(false);
+        return;
+      }
       const res = await api.get('/auth/me');
       setUser(res.data);
     } catch (err) {
       setUser(null);
+      localStorage.removeItem('token');
     } finally {
       setLoading(loading => false);
     }
@@ -24,12 +31,15 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     const res = await api.post('/auth/login', { email, password });
+    if (res.data.token) {
+      localStorage.setItem('token', res.data.token);
+    }
     setUser(res.data.user);
     return res.data;
   };
 
   const logout = async () => {
-    await api.get('/auth/logout');
+    localStorage.removeItem('token');
     setUser(null);
   };
 
