@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import { 
-  Play, Send, ChevronLeft, Settings, Cpu, FilePlus, X, FileCode,
-  MessageSquare, Bot, User, Terminal, BookOpen, Lightbulb, Clock
+  Play, Send, ChevronLeft, Settings, Cpu, 
+  MessageSquare, Bot, User, Terminal, BookOpen, 
+  Lightbulb, Clock, Code2, X, Maximize2, Minimize2
 } from 'lucide-react';
 import api from '../../api/axios';
 import DOMPurify from 'dompurify';
@@ -14,109 +15,90 @@ const PracticeArena = () => {
   const question = location.state?.question;
   const terminalRef = useRef(null);
 
-  // Code Editor State
   const [code, setCode] = useState('');
   const [language, setLanguage] = useState('javascript');
   const [output, setOutput] = useState('');
   const [isRunning, setIsRunning] = useState(false);
+  const [activeTab, setActiveTab] = useState('description');
+  const [isAiOpen, setIsAiOpen] = useState(true);
+  const [isTerminalOpen, setIsTerminalOpen] = useState(true);
 
   // AI Chat State
   const [aiMessages, setAiMessages] = useState([
-    { role: 'assistant', content: 'Hi! I\'m your AI coding assistant. Ask me anything about this problem!' }
+    { role: 'assistant', content: 'Hi! I\'m your AI assistant. Stuck on this problem? I can help!' }
   ]);
   const [aiInput, setAiInput] = useState('');
   const [isAiTyping, setIsAiTyping] = useState(false);
 
-  // Default code templates
   const templates = {
-    javascript: `// Write your solution here\nfunction solution(input) {\n  // Your code here\n  return result;\n}\n\n// Test with example\nconsole.log(solution([1, 2, 3]));`,
-    python: `# Write your solution here\ndef solution(input):\n    # Your code here\n    return result\n\n# Test with example\nprint(solution([1, 2, 3]))`,
-    cpp: `// Write your solution here\n#include <iostream>\n#include <vector>\nusing namespace std;\n\nint solution(vector<int>& input) {\n    // Your code here\n    return result;\n}\n\nint main() {\n    vector<int> test = {1, 2, 3};\n    cout << solution(test) << endl;\n    return 0;\n}`
+    javascript: `function solution(nums, target) {\n  // Write your solution here\n  const map = new Map();\n  for (let i = 0; i < nums.length; i++) {\n    const complement = target - nums[i];\n    if (map.has(complement)) {\n      return [map.get(complement), i];\n    }\n    map.set(nums[i], i);\n  }\n  return [];\n}\n\n// Test\nconsole.log(solution([2, 7, 11, 15], 9));`,
+    python: `def solution(nums, target):\n    # Write your solution here\n    seen = {}\n    for i, num in enumerate(nums):\n        complement = target - num\n        if complement in seen:\n            return [seen[complement], i]\n        seen[num] = i\n    return []\n\n# Test\nprint(solution([2, 7, 11, 15], 9))`,
+    cpp: `vector<int> solution(vector<int>& nums, int target) {\n    // Write your solution here\n    unordered_map<int, int> map;\n    for (int i = 0; i < nums.size(); i++) {\n        int complement = target - nums[i];\n        if (map.find(complement) != map.end()) {\n            return {map[complement], i};\n        }\n        map[nums[i]] = i;\n    }\n    return {};\n}`
   };
 
   useEffect(() => {
     if (question?.codeSnippets) {
-      const jsSnippet = question.codeSnippets.find(s => s.langSlug === 'javascript');
-      if (jsSnippet) {
-        setCode(jsSnippet.code);
-      } else {
-        setCode(templates.javascript);
-      }
+      const snippet = question.codeSnippets.find(s => s.langSlug === language) || 
+                     question.codeSnippets.find(s => s.langSlug === 'javascript');
+      setCode(snippet?.code || templates[language]);
     } else {
-      setCode(templates.javascript);
+      setCode(templates[language]);
     }
-  }, [question]);
+  }, [question, language]);
 
   const handleRun = async () => {
     if (!code.trim()) return;
     setIsRunning(true);
-    setOutput(prev => prev + '\n> Running code...\n');
+    setOutput(prev => prev + '\n▶ Running...\n\n');
     
     try {
-      const response = await api.post('/execute/run', {
-        code,
-        language
-      });
+      const response = await api.post('/execute/run', { code, language });
 
       if (response.data.error) {
-        setOutput(prev => prev + `Error: ${response.data.error}\n`);
+        setOutput(prev => prev + `❌ Error: ${response.data.error}\n`);
       } else {
-        const { status, stdout, stderr, compile_output, time, memory } = response.data;
-        let outputText = `[${status}]\n`;
-        if (compile_output) outputText += `=== Compilation ===\n${compile_output}\n`;
-        if (stdout) outputText += `=== Output ===\n${stdout}\n`;
-        if (stderr) outputText += `=== Errors ===\n${stderr}\n`;
-        if (time) outputText += `\n⏱ ${time}s | 📝 ${memory}KB`;
-        setOutput(prev => prev + outputText);
+        const { stdout, stderr, compile_output } = response.data;
+        let result = '';
+        if (compile_output) result += `📦 Compile:\n${compile_output}\n`;
+        if (stdout) result += `✅ Output:\n${stdout}\n`;
+        if (stderr) result += `⚠️ Stderr:\n${stderr}\n`;
+        setOutput(prev => prev + result);
       }
     } catch (err) {
-      setOutput(prev => prev + `Error: ${err.response?.data?.message || err.message}\n`);
+      setOutput(prev => prev + `❌ ${err.message}\n`);
     } finally {
       setIsRunning(false);
-      if (terminalRef.current) {
-        terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
-      }
+      terminalRef.current?.scrollTo(0, terminalRef.current.scrollHeight);
     }
   };
 
-  const handleAiSend = async () => {
+  const handleAiSend = () => {
     if (!aiInput.trim()) return;
-    
-    const userMessage = { role: 'user', content: aiInput };
-    setAiMessages(prev => [...prev, userMessage]);
+    setAiMessages(prev => [...prev, { role: 'user', content: aiInput }]);
     setAiInput('');
     setIsAiTyping(true);
 
-    // Mock AI response - replace with actual API call
     setTimeout(() => {
       const responses = [
-        "That's a great approach! Consider using a hash map for O(1) lookups.",
-        "Have you tried the two-pointer technique for this problem?",
-        "Your logic looks good! Just be careful with edge cases.",
-        "Try optimizing the space complexity - can you do it in O(1) extra space?",
-        "Consider using dynamic programming for this problem."
+        "Try using a hash map for O(1) lookups!",
+        "Consider edge cases like empty arrays.",
+        "Your approach looks good. Can you optimize space?",
+        "Think about the two-pointer technique!"
       ];
-      const randomResponse = responses[Math.floor(Math.random() * responses.length)];
-      setAiMessages(prev => [...prev, { role: 'assistant', content: randomResponse }]);
+      setAiMessages(prev => [...prev, { 
+        role: 'assistant', 
+        content: responses[Math.floor(Math.random() * responses.length)] 
+      }]);
       setIsAiTyping(false);
-    }, 1500);
-  };
-
-  const getLanguageFromExt = (filename) => {
-    const ext = filename.split('.').pop().toLowerCase();
-    const map = { js: 'javascript', py: 'python', cpp: 'cpp', c: 'c', java: 'java' };
-    return map[ext] || 'javascript';
+    }, 1000);
   };
 
   if (!question) {
     return (
-      <div className="min-h-screen bg-[#0d1117] flex items-center justify-center text-white">
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">
         <div className="text-center">
-          <p className="text-gray-400 mb-4">No question selected.</p>
-          <button 
-            onClick={() => navigate('/practice')}
-            className="px-4 py-2 bg-purple-600 rounded-lg hover:bg-purple-700"
-          >
+          <p className="text-slate-400 mb-4">No question selected.</p>
+          <button onClick={() => navigate('/practice')} className="px-6 py-2 bg-blue-600 rounded-lg hover:bg-blue-700">
             Back to Practice
           </button>
         </div>
@@ -125,28 +107,25 @@ const PracticeArena = () => {
   }
 
   return (
-    <div className="h-screen bg-[#0d1117] flex flex-col overflow-hidden">
-      {/* Header */}
-      <header className="h-14 bg-[#161b22] border-b border-[#30363d] px-4 flex items-center justify-between shrink-0">
+    <div className="h-screen bg-slate-950 flex flex-col overflow-hidden text-slate-200">
+      {/* Top Navigation */}
+      <nav className="h-12 bg-slate-900 border-b border-slate-800 flex items-center px-4 justify-between shrink-0">
         <div className="flex items-center gap-4">
-          <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-800 rounded-lg">
-            <ChevronLeft size={20} className="text-gray-400" />
+          <button onClick={() => navigate(-1)} className="p-1.5 hover:bg-slate-800 rounded">
+            <ChevronLeft size={18} />
           </button>
-          <Link to="/dashboard" className="flex items-center gap-2 hover:opacity-80">
-            <span className="text-purple-500 font-bold">⚔️ CodeArena</span>
+          <Link to="/dashboard" className="font-bold text-blue-400 hover:text-blue-300">
+            CodeArena
           </Link>
-          <span className="text-gray-600">|</span>
-          <span className="text-white font-medium truncate max-w-md">{question.title}</span>
+          <span className="text-slate-600">/</span>
+          <span className="text-sm truncate max-w-xs">{question.title}</span>
         </div>
         
         <div className="flex items-center gap-3">
           <select 
             value={language}
-            onChange={(e) => {
-              setLanguage(e.target.value);
-              setCode(templates[e.target.value] || '');
-            }}
-            className="bg-[#0d1117] border border-[#30363d] rounded px-3 py-1.5 text-sm text-gray-300"
+            onChange={(e) => setLanguage(e.target.value)}
+            className="bg-slate-800 border border-slate-700 rounded px-3 py-1 text-sm"
           >
             <option value="javascript">JavaScript</option>
             <option value="python">Python</option>
@@ -155,92 +134,101 @@ const PracticeArena = () => {
           <button
             onClick={handleRun}
             disabled={isRunning}
-            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white px-4 py-1.5 rounded text-sm font-bold"
+            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white px-4 py-1.5 rounded text-sm font-medium"
           >
             {isRunning ? <Cpu size={14} className="animate-spin" /> : <Play size={14} />} 
             Run
           </button>
         </div>
-      </header>
+      </nav>
 
-      {/* Main 3-Column Layout */}
+      {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
         
-        {/* LEFT: Question Details */}
-        <div className="w-1/4 min-w-[300px] bg-[#0d1117] border-r border-[#30363d] flex flex-col">
-          <div className="p-4 border-b border-[#30363d]">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-xs font-bold text-purple-500 uppercase">{question.source}</span>
-              <span className={`text-xs px-2 py-0.5 rounded ${
-                question.difficulty === 'Easy' ? 'bg-green-500/20 text-green-500' :
-                question.difficulty === 'Medium' ? 'bg-yellow-500/20 text-yellow-500' :
-                'bg-red-500/20 text-red-500'
-              }`}>
-                {question.difficulty}
-              </span>
-            </div>
-            <h1 className="text-lg font-bold text-white">{question.title}</h1>
+        {/* Left Panel - Problem */}
+        <div className="w-[450px] bg-slate-900 border-r border-slate-800 flex flex-col">
+          {/* Tabs */}
+          <div className="flex border-b border-slate-800">
+            {['description', 'hints'].map(tab => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`flex-1 py-2.5 text-sm font-medium capitalize ${
+                  activeTab === tab 
+                    ? 'text-blue-400 border-b-2 border-blue-400 bg-slate-800/50' 
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                {tab}
+              </button>
+            ))}
           </div>
-          
-          <div className="flex-1 overflow-y-auto p-4 space-y-6">
-            {/* Description */}
-            <div>
-              <h3 className="text-sm font-bold text-gray-400 mb-2 flex items-center gap-2">
-                <BookOpen size={14} /> Description
-              </h3>
-              <div 
-                className="text-sm text-gray-300 leading-relaxed prose prose-invert max-w-none"
-                dangerouslySetInnerHTML={{ 
-                  __html: DOMPurify.sanitize(question.content || 'No description available.') 
-                }}
-              />
-            </div>
 
-            {/* Examples */}
-            {question.examples && (
-              <div>
-                <h3 className="text-sm font-bold text-gray-400 mb-2">Examples</h3>
-                <pre className="bg-[#161b22] p-3 rounded text-sm text-gray-300 overflow-x-auto">
-                  {question.examples}
-                </pre>
-              </div>
-            )}
-
-            {/* Hints */}
-            {question.hints && question.hints.length > 0 && (
-              <div>
-                <h3 className="text-sm font-bold text-gray-400 mb-2 flex items-center gap-2">
-                  <Lightbulb size={14} /> Hints
-                </h3>
-                <ul className="space-y-2">
-                  {question.hints.map((hint, idx) => (
-                    <li key={idx} className="text-sm text-gray-400 bg-[#161b22] p-2 rounded">
-                      {hint}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* Tags */}
-            {question.tags && (
-              <div>
-                <h3 className="text-sm font-bold text-gray-400 mb-2">Topics</h3>
-                <div className="flex flex-wrap gap-2">
-                  {question.tags.map(tag => (
-                    <span key={tag} className="text-xs bg-gray-800 text-gray-400 px-2 py-1 rounded">
-                      {tag}
-                    </span>
-                  ))}
+          {/* Content */}
+          <div className="flex-1 overflow-y-auto p-5">
+            {activeTab === 'description' && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <h1 className="text-xl font-bold text-white">{question.title}</h1>
+                  <span className={`text-xs px-2 py-1 rounded font-medium ${
+                    question.difficulty === 'Easy' ? 'bg-green-500/20 text-green-400' :
+                    question.difficulty === 'Medium' ? 'bg-yellow-500/20 text-yellow-400' :
+                    'bg-red-500/20 text-red-400'
+                  }`}>
+                    {question.difficulty}
+                  </span>
                 </div>
+
+                <div 
+                  className="prose prose-invert prose-sm max-w-none text-slate-300"
+                  dangerouslySetInnerHTML={{ 
+                    __html: DOMPurify.sanitize(question.content || 'No description available.') 
+                  }}
+                />
+
+                {question.examples && (
+                  <div className="mt-6">
+                    <h3 className="text-sm font-semibold text-slate-400 mb-2">Example:</h3>
+                    <div className="bg-slate-950 rounded-lg p-4 font-mono text-sm">
+                      <pre className="text-slate-300">{question.examples}</pre>
+                    </div>
+                  </div>
+                )}
+
+                {question.tags && (
+                  <div className="flex flex-wrap gap-2 pt-4">
+                    {question.tags.map(tag => (
+                      <span key={tag} className="text-xs bg-slate-800 text-slate-400 px-2 py-1 rounded">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'hints' && (
+              <div className="space-y-3">
+                {question.hints?.length > 0 ? (
+                  question.hints.map((hint, i) => (
+                    <div key={i} className="bg-slate-800/50 rounded-lg p-4">
+                      <div className="flex items-center gap-2 text-yellow-500 mb-2">
+                        <Lightbulb size={14} />
+                        <span className="text-sm font-medium">Hint {i + 1}</span>
+                      </div>
+                      <p className="text-sm text-slate-300">{hint}</p>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-slate-500 text-center py-8">No hints available.</p>
+                )}
               </div>
             )}
           </div>
         </div>
 
-        {/* MIDDLE: Code Editor + Terminal */}
+        {/* Center - Code Editor */}
         <div className="flex-1 flex flex-col min-w-0">
-          {/* Editor */}
           <div className="flex-1 min-h-0">
             <Editor
               height="100%"
@@ -254,93 +242,129 @@ const PracticeArena = () => {
                 fontFamily: 'JetBrains Mono, monospace',
                 automaticLayout: true,
                 scrollBeyondLastLine: false,
-                padding: { top: 16 }
+                padding: { top: 16 },
+                lineNumbers: 'on',
+                roundedSelection: false,
+                scrollbar: { useShadows: false }
               }}
             />
           </div>
 
           {/* Terminal */}
-          <div className="h-48 bg-[#0d1117] border-t border-[#30363d] flex flex-col">
-            <div className="flex items-center justify-between px-4 py-2 border-b border-[#30363d] bg-[#161b22]">
-              <span className="text-xs font-bold text-gray-500 flex items-center gap-2">
-                <Terminal size={12} /> Console
-              </span>
-              <button onClick={() => setOutput('')} className="text-xs text-gray-600 hover:text-gray-400">
-                Clear
-              </button>
-            </div>
-            <div 
-              ref={terminalRef}
-              className="flex-1 p-4 font-mono text-sm text-gray-300 overflow-y-auto whitespace-pre-wrap"
-            >
-              {output || 'Ready to execute code...'}
-            </div>
-          </div>
-        </div>
-
-        {/* RIGHT: AI Assistant */}
-        <div className="w-80 bg-[#161b22] border-l border-[#30363d] flex flex-col">
-          <div className="p-4 border-b border-[#30363d]">
-            <h3 className="text-sm font-bold text-purple-400 flex items-center gap-2">
-              <Bot size={16} /> AI Assistant
-            </h3>
-          </div>
-          
-          {/* Chat Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {aiMessages.map((msg, idx) => (
-              <div key={idx} className={`flex gap-2 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-                  msg.role === 'user' ? 'bg-purple-600' : 'bg-green-600'
-                }`}>
-                  {msg.role === 'user' ? <User size={14} /> : <Bot size={14} />}
-                </div>
-                <div className={`max-w-[80%] p-3 rounded-lg text-sm ${
-                  msg.role === 'user' 
-                    ? 'bg-purple-600/20 text-purple-200' 
-                    : 'bg-gray-800 text-gray-300'
-                }`}>
-                  {msg.content}
+          {isTerminalOpen && (
+            <div className="h-40 bg-slate-950 border-t border-slate-800 flex flex-col">
+              <div className="flex items-center justify-between px-4 py-2 bg-slate-900 border-b border-slate-800">
+                <span className="text-xs font-medium text-slate-400 flex items-center gap-2">
+                  <Terminal size={12} /> Console
+                </span>
+                <div className="flex gap-2">
+                  <button onClick={() => setOutput('')} className="text-xs text-slate-500 hover:text-slate-300">
+                    Clear
+                  </button>
+                  <button onClick={() => setIsTerminalOpen(false)} className="text-slate-500 hover:text-slate-300">
+                    <X size={14} />
+                  </button>
                 </div>
               </div>
-            ))}
-            {isAiTyping && (
-              <div className="flex gap-2">
-                <div className="w-8 h-8 rounded-full bg-green-600 flex items-center justify-center">
-                  <Bot size={14} />
-                </div>
-                <div className="bg-gray-800 p-3 rounded-lg">
-                  <div className="flex gap-1">
-                    <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"></span>
-                    <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></span>
-                    <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></span>
+              <div 
+                ref={terminalRef}
+                className="flex-1 p-4 font-mono text-sm overflow-y-auto"
+              >
+                {output ? (
+                  <pre className="text-slate-300 whitespace-pre-wrap">{output}</pre>
+                ) : (
+                  <span className="text-slate-600 italic">Click Run to see output...</span>
+                )}
+              </div>
+            </div>
+          )}
+          
+          {!isTerminalOpen && (
+            <button 
+              onClick={() => setIsTerminalOpen(true)}
+              className="h-8 bg-slate-900 border-t border-slate-800 flex items-center justify-center text-slate-500 hover:text-slate-300"
+            >
+              <Terminal size={14} className="mr-2" /> Show Console
+            </button>
+          )}
+        </div>
+
+        {/* Right Panel - AI */}
+        {isAiOpen && (
+          <div className="w-80 bg-slate-900 border-l border-slate-800 flex flex-col">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <Bot size={18} className="text-purple-400" />
+                <span className="font-medium text-sm">AI Assistant</span>
+              </div>
+              <button onClick={() => setIsAiOpen(false)} className="text-slate-500 hover:text-slate-300">
+                <X size={16} />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {aiMessages.map((msg, i) => (
+                <div key={i} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${
+                    msg.role === 'user' ? 'bg-blue-600' : 'bg-purple-600'
+                  }`}>
+                    {msg.role === 'user' ? <User size={12} /> : <Bot size={12} />}
+                  </div>
+                  <div className={`max-w-[75%] p-3 rounded-2xl text-sm ${
+                    msg.role === 'user' 
+                      ? 'bg-blue-600 text-white rounded-br-md' 
+                      : 'bg-slate-800 text-slate-200 rounded-bl-md'
+                  }`}>
+                    {msg.content}
                   </div>
                 </div>
-              </div>
-            )}
-          </div>
+              ))}
+              {isAiTyping && (
+                <div className="flex gap-3">
+                  <div className="w-7 h-7 rounded-full bg-purple-600 flex items-center justify-center">
+                    <Bot size={12} />
+                  </div>
+                  <div className="bg-slate-800 p-3 rounded-2xl rounded-bl-md">
+                    <div className="flex gap-1">
+                      <span className="w-1.5 h-1.5 bg-slate-500 rounded-full animate-bounce"></span>
+                      <span className="w-1.5 h-1.5 bg-slate-500 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></span>
+                      <span className="w-1.5 h-1.5 bg-slate-500 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
 
-          {/* Input */}
-          <div className="p-4 border-t border-[#30363d]">
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={aiInput}
-                onChange={(e) => setAiInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleAiSend()}
-                placeholder="Ask for help..."
-                className="flex-1 bg-[#0d1117] border border-[#30363d] rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-purple-500"
-              />
-              <button
-                onClick={handleAiSend}
-                disabled={!aiInput.trim() || isAiTyping}
-                className="p-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 rounded-lg"
-              >
-                <Send size={16} />
-              </button>
+            <div className="p-3 border-t border-slate-800">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={aiInput}
+                  onChange={(e) => setAiInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleAiSend()}
+                  placeholder="Ask anything..."
+                  className="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm outline-none focus:border-purple-500"
+                />
+                <button
+                  onClick={handleAiSend}
+                  disabled={!aiInput.trim() || isAiTyping}
+                  className="p-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 rounded-lg"
+                >
+                  <Send size={16} />
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        )}
+
+        {!isAiOpen && (
+          <button 
+            onClick={() => setIsAiOpen(true)}
+            className="fixed right-4 bottom-4 w-12 h-12 bg-purple-600 hover:bg-purple-700 rounded-full flex items-center justify-center shadow-lg"
+          >
+            <Bot size={20} />
+          </button>
+        )}
       </div>
     </div>
   );
