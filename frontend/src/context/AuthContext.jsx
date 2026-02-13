@@ -22,10 +22,11 @@ export const AuthProvider = ({ children }) => {
       const res = await api.get('/auth/me');
       setUser(res.data);
     } catch (err) {
+      console.error('Auth check failed:', err);
       setUser(null);
       localStorage.removeItem('token');
     } finally {
-      setLoading(loading => false);
+      setLoading(false);
     }
   };
 

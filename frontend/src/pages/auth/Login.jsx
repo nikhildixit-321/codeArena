@@ -14,7 +14,7 @@ const Login = ({ onSwitch }) => {
     e.preventDefault();
     try {
       await login(email, password);
-      navigate('/dashboard');
+      window.location.href = '/dashboard';
     } catch (err) {
       setError(err.response?.data?.message || 'Login failed');
     }
