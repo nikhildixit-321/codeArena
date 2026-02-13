@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { useState } from 'react';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
+import AuthCallback from './pages/auth/AuthCallback';
 import Home from './pages/deshboard/Home';
 import PracticeHome from './pages/practice/PracticeHome';
 import PracticeArena from './pages/practice/PracticeArena';
@@ -51,6 +52,7 @@ export default function App() {
       <Router>
         <Routes>
           <Route path="/" element={<AuthOverlay />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/dashboard" element={<PrivateRoute><Home /></PrivateRoute>} />
           <Route path="/practice" element={<PrivateRoute><PracticeHome /></PrivateRoute>} />
           <Route path="/practice/arena" element={<PrivateRoute><PracticeArena /></PrivateRoute>} />
