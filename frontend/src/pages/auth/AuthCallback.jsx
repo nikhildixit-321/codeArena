@@ -9,7 +9,10 @@ const AuthCallback = () => {
     const token = searchParams.get('token');
     if (token) {
       localStorage.setItem('token', token);
-      navigate('/dashboard');
+      // Small delay to ensure token is saved before navigation
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 100);
     } else {
       navigate('/login');
     }
