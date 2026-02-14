@@ -2,14 +2,15 @@ import React from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import HomeNavbar from "../../components/Navbar";
+import Footer from "../../components/Footer";
 
 const Home = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      <div className="flex min-h-screen">
+    <div className="min-h-screen bg-black text-white flex flex-col">
+      <div className="flex flex-1">
         
         {/* LEFT SIDEBAR */}
         <div className="w-64 bg-gray-950 border-r border-gray-800 p-4 shrink-0">
@@ -100,6 +101,9 @@ const Home = () => {
           </div>
         </div>
       </div>
+      
+      {/* Footer */}
+      <Footer />
     </div>
   );
 };

@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { FaBell, FaFire, FaGamepad, FaBrain } from "react-icons/fa";
+import { FaBell, FaFire, FaGamepad, FaBrain, FaUser } from "react-icons/fa";
 
 export default function HomeNavbar() {
   return (
@@ -17,13 +17,13 @@ export default function HomeNavbar() {
           🔴 128 Live
         </span>
 
-        <button className="flex items-center gap-2 px-3 py-1.5 bg-gray-900 rounded hover:bg-purple-600 transition">
+        <Link to="/matchmaking" className="flex items-center gap-2 px-3 py-1.5 bg-gray-900 rounded hover:bg-purple-600 transition">
           <FaGamepad /> Quick
-        </button>
+        </Link>
 
-        <button className="flex items-center gap-2 px-3 py-1.5 bg-gray-900 rounded hover:bg-purple-600 transition">
+        <Link to="/practice" className="flex items-center gap-2 px-3 py-1.5 bg-gray-900 rounded hover:bg-purple-600 transition">
           <FaBrain /> Practice
-        </button>
+        </Link>
       </div>
 
       {/* Right */}
@@ -40,11 +40,11 @@ export default function HomeNavbar() {
 
         <FaBell className="cursor-pointer hover:text-purple-500" />
 
-        <img
-          src="/avatar.png"
-          alt="avatar"
-          className="w-8 h-8 rounded-full border border-gray-700"
-        />
+        <Link to="/profile" className="hover:opacity-80 transition-opacity">
+          <div className="w-8 h-8 rounded-full border border-gray-700 bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center">
+            <FaUser className="text-white text-sm" />
+          </div>
+        </Link>
       </div>
     </div>
   );
