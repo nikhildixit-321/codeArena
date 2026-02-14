@@ -10,6 +10,7 @@ import PracticeArena from './pages/practice/PracticeArena';
 import IDE from './pages/ide/IDE';
 import MatchArena from './pages/match/MatchArena';
 import Matchmaking from './pages/matchmaking/Matchmaking';
+import Profile from './pages/profile/Profile';
 
 const AuthOverlay = () => {
   const { user, loading } = useAuth();
@@ -59,6 +60,7 @@ export default function App() {
           <Route path="/ide" element={<PrivateRoute><IDE /></PrivateRoute>} />
           <Route path="/matchmaking" element={<PrivateRoute><Matchmaking /></PrivateRoute>} />
           <Route path="/arena/:matchId" element={<PrivateRoute><MatchArena /></PrivateRoute>} />
+          <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </Router>
