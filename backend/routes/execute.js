@@ -2,8 +2,8 @@ const express = require('express');
 const axios = require('axios');
 const router = express.Router();
 
-// Piston API - Free & Open Source (self-hosted or public)
-const PISTON_API_URL = 'https://emkc.org/api/v2/piston';
+// Piston API - Using alternative public instance
+const PISTON_API_URL = 'https://piston.tabby.page/api/v2';
 
 // Create axios instance with timeout
 const pistonClient = axios.create({
