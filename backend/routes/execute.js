@@ -3,25 +3,25 @@ const axios = require('axios');
 const router = express.Router();
 
 // RapidAPI - Online Code Compiler
-const RAPID_API_URL = 'https://online-code-compiler.p.rapidapi.com/v1/';
+const RAPID_API_URL = 'https://online-code-compiler.p.rapidapi.com/v1';
 const RAPID_API_KEY = process.env.RAPID_API_KEY || '';
 const RAPID_API_HOST = 'online-code-compiler.p.rapidapi.com';
 
-// Language mapping for RapidAPI (use version_index instead of 'latest')
+// Language mapping for RapidAPI
 const LANGUAGES = {
-  javascript: { language: 'nodejs', versionIndex: '2' },
-  python: { language: 'python3', versionIndex: '3' },
-  cpp: { language: 'cpp17', versionIndex: '0' },
-  c: { language: 'c', versionIndex: '0' },
-  java: { language: 'java', versionIndex: '3' },
-  go: { language: 'go', versionIndex: '3' },
-  rust: { language: 'rust', versionIndex: '3' },
-  ruby: { language: 'ruby', versionIndex: '3' },
-  php: { language: 'php', versionIndex: '3' },
-  typescript: { language: 'typescript', versionIndex: '3' },
-  kotlin: { language: 'kotlin', versionIndex: '2' },
-  swift: { language: 'swift', versionIndex: '3' },
-  csharp: { language: 'csharp', versionIndex: '3' },
+  javascript: 'nodejs',
+  python: 'python3',
+  cpp: 'cpp17',
+  c: 'c',
+  java: 'java',
+  go: 'go',
+  rust: 'rust',
+  ruby: 'ruby',
+  php: 'php',
+  typescript: 'typescript',
+  kotlin: 'kotlin',
+  swift: 'swift',
+  csharp: 'csharp',
 };
 
 // Execute code using RapidAPI
@@ -33,8 +33,8 @@ router.post('/run', async (req, res) => {
       return res.status(400).json({ error: 'Code and language are required' });
     }
 
-    const langConfig = LANGUAGES[language];
-    if (!langConfig) {
+    const langName = LANGUAGES[language];
+    if (!langName) {
       return res.status(400).json({ error: `Language '${language}' is not supported` });
     }
 
@@ -48,10 +48,10 @@ router.post('/run', async (req, res) => {
 
     // Execute using RapidAPI
     const response = await axios.post(
-      `${RAPID_API_URL}`,
+      `${RAPID_API_URL}/`,
       {
-        language: langConfig.language,
-        versionIndex: langConfig.versionIndex,
+        language: langName,
+        versionIndex: '0',
         code: code,
         input: stdin
       },
