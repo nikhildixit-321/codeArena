@@ -2,8 +2,16 @@ const express = require('express');
 const axios = require('axios');
 const router = express.Router();
 
-// Piston API - Free & Open Source
+// Piston API - Free & Open Source (self-hosted or public)
 const PISTON_API_URL = 'https://emkc.org/api/v2/piston';
+
+// Create axios instance with timeout
+const pistonClient = axios.create({
+  timeout: 30000,
+  headers: {
+    'Content-Type': 'application/json'
+  }
+});
 
 // Language versions for Piston
 const LANGUAGES = {
@@ -37,7 +45,7 @@ router.post('/run', async (req, res) => {
     }
 
     // Execute code using Piston
-    const response = await axios.post(
+    const response = await pistonClient.post(
       `${PISTON_API_URL}/execute`,
       {
         language: langConfig.language,
@@ -47,14 +55,7 @@ router.post('/run', async (req, res) => {
             content: code
           }
         ],
-        stdin: stdin,
-        compile_timeout: 10000,
-        run_timeout: 3000
-      },
-      {
-        headers: {
-          'Content-Type': 'application/json'
-        }
+        stdin: stdin
       }
     );
 
@@ -74,9 +75,11 @@ router.post('/run', async (req, res) => {
 
   } catch (error) {
     console.error('Piston execution error:', error.message);
+    console.error('Error details:', error.response?.data);
     res.status(500).json({
       error: 'Code execution failed',
-      message: error.response?.data?.message || error.message
+      message: error.response?.data?.message || error.message,
+      details: error.response?.data || 'No additional details'
     });
   }
 });
