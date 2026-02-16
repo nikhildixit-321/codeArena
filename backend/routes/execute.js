@@ -2,29 +2,27 @@ const express = require('express');
 const axios = require('axios');
 const router = express.Router();
 
-// Judge0 API configuration
-const JUDGE0_API_URL = 'https://judge0-ce.p.rapidapi.com';
-const JUDGE0_API_KEY = process.env.JUDGE0_API_KEY || 'YOUR_RAPIDAPI_KEY_HERE';
-const JUDGE0_API_HOST = 'judge0-ce.p.rapidapi.com';
+// Piston API - Free & Open Source
+const PISTON_API_URL = 'https://emkc.org/api/v2/piston';
 
-// Language IDs for Judge0
-const LANGUAGE_IDS = {
-  javascript: 63,  // Node.js
-  python: 71,      // Python 3
-  cpp: 54,         // C++ (GCC 9.2.0)
-  c: 50,           // C (GCC 9.2.0)
-  java: 62,        // Java (OpenJDK 13.0.1)
-  typescript: 74,  // TypeScript
-  go: 60,          // Go
-  rust: 73,        // Rust
-  ruby: 72,        // Ruby
-  php: 68,         // PHP
-  kotlin: 78,      // Kotlin
-  swift: 83,       // Swift
-  csharp: 51,      // C# (Mono 6.6.0.161)
+// Language versions for Piston
+const LANGUAGES = {
+  javascript: { language: 'javascript', version: '18.15.0' },
+  python: { language: 'python', version: '3.10.0' },
+  cpp: { language: 'cpp', version: '10.2.0' },
+  c: { language: 'c', version: '10.2.0' },
+  java: { language: 'java', version: '15.0.2' },
+  typescript: { language: 'typescript', version: '5.0.3' },
+  go: { language: 'go', version: '1.16.2' },
+  rust: { language: 'rust', version: '1.68.2' },
+  ruby: { language: 'ruby', version: '3.0.1' },
+  php: { language: 'php', version: '8.2.3' },
+  kotlin: { language: 'kotlin', version: '1.8.20' },
+  swift: { language: 'swift', version: '5.3.3' },
+  csharp: { language: 'csharp', version: '6.12.0' },
 };
 
-// Execute code
+// Execute code using Piston API
 router.post('/run', async (req, res) => {
   try {
     const { code, language, stdin = '' } = req.body;
@@ -33,98 +31,70 @@ router.post('/run', async (req, res) => {
       return res.status(400).json({ error: 'Code and language are required' });
     }
 
-    const languageId = LANGUAGE_IDS[language];
-    if (!languageId) {
+    const langConfig = LANGUAGES[language];
+    if (!langConfig) {
       return res.status(400).json({ error: `Language '${language}' is not supported` });
     }
 
-    // Submit code to Judge0
-    const submitResponse = await axios.post(
-      `${JUDGE0_API_URL}/submissions`,
+    // Execute code using Piston
+    const response = await axios.post(
+      `${PISTON_API_URL}/execute`,
       {
-        source_code: code,
-        language_id: languageId,
+        language: langConfig.language,
+        version: langConfig.version,
+        files: [
+          {
+            content: code
+          }
+        ],
         stdin: stdin,
-        wait: false // Don't wait, we'll check status separately
+        compile_timeout: 10000,
+        run_timeout: 3000
       },
       {
         headers: {
-          'content-type': 'application/json',
-          'X-RapidAPI-Key': JUDGE0_API_KEY,
-          'X-RapidAPI-Host': JUDGE0_API_HOST
+          'Content-Type': 'application/json'
         }
       }
     );
 
-    const token = submitResponse.data.token;
+    const result = response.data;
 
-    // Poll for result
-    let result;
-    let attempts = 0;
-    const maxAttempts = 10;
+    // Format response similar to Judge0 for compatibility
+    res.json({
+      stdout: result.run?.stdout || '',
+      stderr: result.run?.stderr || '',
+      compile_output: result.compile?.stderr || '',
+      message: result.run?.output || '',
+      status: result.run?.code === 0 ? 'Accepted' : 'Error',
+      time: result.run?.runtime ? `${result.run.runtime}ms` : '0ms',
+      memory: result.run?.memory ? `${result.run.memory}KB` : '0KB',
+      error: result.run?.stderr || result.compile?.stderr || null
+    });
 
-    while (attempts < maxAttempts) {
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
-
-      const statusResponse = await axios.get(
-        `${JUDGE0_API_URL}/submissions/${token}`,
-        {
-          headers: {
-            'X-RapidAPI-Key': JUDGE0_API_KEY,
-            'X-RapidAPI-Host': JUDGE0_API_HOST
-          }
-        }
-      );
-
-      result = statusResponse.data;
-
-      // Check if processing is complete
-      if (result.status.id > 2) { // 1: In Queue, 2: Processing
-        break;
-      }
-
-      attempts++;
-    }
-
-    // Format output
-    const output = {
-      status: result.status.description,
-      stdout: result.stdout || '',
-      stderr: result.stderr || '',
-      compile_output: result.compile_output || '',
-      message: result.message || '',
-      time: result.time,
-      memory: result.memory
-    };
-
-    res.json(output);
-
-  } catch (err) {
-    console.error('Code execution error:', err.message);
-    res.status(500).json({ 
-      error: 'Failed to execute code',
-      message: err.message 
+  } catch (error) {
+    console.error('Piston execution error:', error.message);
+    res.status(500).json({
+      error: 'Code execution failed',
+      message: error.response?.data?.message || error.message
     });
   }
 });
 
-// Get supported languages
-router.get('/languages', (req, res) => {
-  res.json({
-    javascript: 'JavaScript (Node.js)',
-    python: 'Python 3',
-    cpp: 'C++',
-    c: 'C',
-    java: 'Java',
-    typescript: 'TypeScript',
-    go: 'Go',
-    rust: 'Rust',
-    ruby: 'Ruby',
-    php: 'PHP',
-    kotlin: 'Kotlin',
-    swift: 'Swift',
-    csharp: 'C#'
-  });
+// Get available runtimes (languages)
+router.get('/runtimes', async (req, res) => {
+  try {
+    const response = await axios.get(`${PISTON_API_URL}/runtimes`);
+    res.json(response.data);
+  } catch (error) {
+    console.error('Failed to fetch runtimes:', error.message);
+    res.status(500).json({ error: 'Failed to fetch runtimes' });
+  }
+});
+
+// Health check
+router.get('/health', (req, res) => {
+  res.json({ status: 'ok', service: 'piston' });
 });
 
 module.exports = router;
