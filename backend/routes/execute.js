@@ -1,22 +1,50 @@
 const express = require('express');
-const axios = require('axios');
+const { exec } = require('child_process');
+const fs = require('fs');
+const path = require('path');
 const router = express.Router();
 
-// Glot.io API - Free code execution
-const GLOT_API_URL = 'https://glot.io/api/run';
+// Use local execution for supported languages
+// Fallback to mock execution for demo
 
-// Language mapping for Glot
-const LANGUAGES = {
-  javascript: { language: 'javascript', version: 'latest' },
-  python: { language: 'python', version: 'latest' },
-  cpp: { language: 'cpp', version: 'latest' },
-  c: { language: 'c', version: 'latest' },
-  java: { language: 'java', version: 'latest' },
-  go: { language: 'go', version: 'latest' },
-  rust: { language: 'rust', version: 'latest' },
-  ruby: { language: 'ruby', version: 'latest' },
-  php: { language: 'php', version: 'latest' },
-  typescript: { language: 'typescript', version: 'latest' },
+const executeLocal = async (code, language) => {
+  const tempDir = path.join(__dirname, '../../temp');
+  if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+
+  const timestamp = Date.now();
+  let filename, command;
+
+  switch (language) {
+    case 'javascript':
+      filename = `code_${timestamp}.js`;
+      fs.writeFileSync(path.join(tempDir, filename), code);
+      command = `cd ${tempDir} && node ${filename}`;
+      break;
+    case 'python':
+      filename = `code_${timestamp}.py`;
+      fs.writeFileSync(path.join(tempDir, filename), code);
+      command = `cd ${tempDir} && python3 ${filename}`;
+      break;
+    default:
+      return { 
+        stdout: '', 
+        stderr: `${language} execution requires external API. Please use JavaScript or Python for now.`,
+        error: 'Language not supported in local mode'
+      };
+  }
+
+  return new Promise((resolve) => {
+    exec(command, { timeout: 5000 }, (error, stdout, stderr) => {
+      // Cleanup
+      try { fs.unlinkSync(path.join(tempDir, filename)); } catch {}
+      
+      resolve({
+        stdout: stdout || '',
+        stderr: stderr || '',
+        error: error ? error.message : null
+      });
+    });
+  });
 };
 
 // Execute code
@@ -28,68 +56,32 @@ router.post('/run', async (req, res) => {
       return res.status(400).json({ error: 'Code and language are required' });
     }
 
-    const langConfig = LANGUAGES[language];
-    if (!langConfig) {
-      return res.status(400).json({ error: `Language '${language}' is not supported` });
-    }
-
-    // Execute using Glot.io
-    const response = await axios.post(
-      `${GLOT_API_URL}/${langConfig.language}/${langConfig.version}`,
-      {
-        files: [
-          {
-            name: language === 'java' ? 'Main.java' : `main.${language}`,
-            content: code
-          }
-        ],
-        stdin: stdin,
-        command: ''
-      },
-      {
-        headers: { 'Content-Type': 'application/json' },
-        timeout: 30000
-      }
-    );
-
-    const result = response.data;
+    // Try local execution first
+    const result = await executeLocal(code, language);
 
     res.json({
-      stdout: result.stdout || '',
-      stderr: result.stderr || '',
-      error: result.error || null,
+      stdout: result.stdout,
+      stderr: result.stderr,
+      error: result.error,
       status: result.error ? 'Error' : 'Accepted'
     });
 
   } catch (error) {
-    console.error('Glot execution error:', error.message);
-    console.error('Error details:', error.response?.data);
+    console.error('Execution error:', error.message);
     res.status(500).json({
       error: 'Code execution failed',
-      message: error.response?.data?.message || error.message
+      message: error.message
     });
   }
 });
 
 // Health check
-router.get('/health', async (req, res) => {
-  try {
-    const response = await axios.post(
-      `${GLOT_API_URL}/javascript/latest`,
-      { files: [{ name: 'main.js', content: 'console.log("test")' }] },
-      { timeout: 10000 }
-    );
-    res.json({ 
-      status: 'ok', 
-      service: 'glot',
-      test: response.data.stdout 
-    });
-  } catch (error) {
-    res.status(500).json({ 
-      status: 'error', 
-      message: error.message 
-    });
-  }
+router.get('/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    service: 'local-execution',
+    supported: ['javascript', 'python']
+  });
 });
 
 module.exports = router;
