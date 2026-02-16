@@ -7,21 +7,21 @@ const RAPID_API_URL = 'https://online-code-compiler.p.rapidapi.com/v1/';
 const RAPID_API_KEY = process.env.RAPID_API_KEY || '';
 const RAPID_API_HOST = 'online-code-compiler.p.rapidapi.com';
 
-// Language mapping for RapidAPI
+// Language mapping for RapidAPI (use version_index instead of 'latest')
 const LANGUAGES = {
-  javascript: { language: 'nodejs', version: 'latest' },
-  python: { language: 'python3', version: 'latest' },
-  cpp: { language: 'cpp17', version: 'latest' },
-  c: { language: 'c', version: 'latest' },
-  java: { language: 'java', version: 'latest' },
-  go: { language: 'go', version: 'latest' },
-  rust: { language: 'rust', version: 'latest' },
-  ruby: { language: 'ruby', version: 'latest' },
-  php: { language: 'php', version: 'latest' },
-  typescript: { language: 'typescript', version: 'latest' },
-  kotlin: { language: 'kotlin', version: 'latest' },
-  swift: { language: 'swift', version: 'latest' },
-  csharp: { language: 'csharp', version: 'latest' },
+  javascript: { language: 'nodejs', versionIndex: '2' },
+  python: { language: 'python3', versionIndex: '3' },
+  cpp: { language: 'cpp17', versionIndex: '0' },
+  c: { language: 'c', versionIndex: '0' },
+  java: { language: 'java', versionIndex: '3' },
+  go: { language: 'go', versionIndex: '3' },
+  rust: { language: 'rust', versionIndex: '3' },
+  ruby: { language: 'ruby', versionIndex: '3' },
+  php: { language: 'php', versionIndex: '3' },
+  typescript: { language: 'typescript', versionIndex: '3' },
+  kotlin: { language: 'kotlin', versionIndex: '2' },
+  swift: { language: 'swift', versionIndex: '3' },
+  csharp: { language: 'csharp', versionIndex: '3' },
 };
 
 // Execute code using RapidAPI
@@ -51,7 +51,7 @@ router.post('/run', async (req, res) => {
       `${RAPID_API_URL}`,
       {
         language: langConfig.language,
-        version: langConfig.version,
+        versionIndex: langConfig.versionIndex,
         code: code,
         input: stdin
       },
