@@ -1,53 +1,30 @@
 const express = require('express');
-const { exec } = require('child_process');
-const fs = require('fs');
-const path = require('path');
+const axios = require('axios');
 const router = express.Router();
 
-// Use local execution for supported languages
-// Fallback to mock execution for demo
+// RapidAPI - Online Code Compiler
+const RAPID_API_URL = 'https://online-code-compiler.p.rapidapi.com/v1/';
+const RAPID_API_KEY = process.env.RAPID_API_KEY || '';
+const RAPID_API_HOST = 'online-code-compiler.p.rapidapi.com';
 
-const executeLocal = async (code, language) => {
-  const tempDir = path.join(__dirname, '../../temp');
-  if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
-
-  const timestamp = Date.now();
-  let filename, command;
-
-  switch (language) {
-    case 'javascript':
-      filename = `code_${timestamp}.js`;
-      fs.writeFileSync(path.join(tempDir, filename), code);
-      command = `cd ${tempDir} && node ${filename}`;
-      break;
-    case 'python':
-      filename = `code_${timestamp}.py`;
-      fs.writeFileSync(path.join(tempDir, filename), code);
-      command = `cd ${tempDir} && python3 ${filename}`;
-      break;
-    default:
-      return { 
-        stdout: '', 
-        stderr: `${language} execution requires external API. Please use JavaScript or Python for now.`,
-        error: 'Language not supported in local mode'
-      };
-  }
-
-  return new Promise((resolve) => {
-    exec(command, { timeout: 5000 }, (error, stdout, stderr) => {
-      // Cleanup
-      try { fs.unlinkSync(path.join(tempDir, filename)); } catch {}
-      
-      resolve({
-        stdout: stdout || '',
-        stderr: stderr || '',
-        error: error ? error.message : null
-      });
-    });
-  });
+// Language mapping for RapidAPI
+const LANGUAGES = {
+  javascript: { language: 'nodejs', version: 'latest' },
+  python: { language: 'python3', version: 'latest' },
+  cpp: { language: 'cpp17', version: 'latest' },
+  c: { language: 'c', version: 'latest' },
+  java: { language: 'java', version: 'latest' },
+  go: { language: 'go', version: 'latest' },
+  rust: { language: 'rust', version: 'latest' },
+  ruby: { language: 'ruby', version: 'latest' },
+  php: { language: 'php', version: 'latest' },
+  typescript: { language: 'typescript', version: 'latest' },
+  kotlin: { language: 'kotlin', version: 'latest' },
+  swift: { language: 'swift', version: 'latest' },
+  csharp: { language: 'csharp', version: 'latest' },
 };
 
-// Execute code
+// Execute code using RapidAPI
 router.post('/run', async (req, res) => {
   try {
     const { code, language, stdin = '' } = req.body;
@@ -56,31 +33,70 @@ router.post('/run', async (req, res) => {
       return res.status(400).json({ error: 'Code and language are required' });
     }
 
-    // Try local execution first
-    const result = await executeLocal(code, language);
+    const langConfig = LANGUAGES[language];
+    if (!langConfig) {
+      return res.status(400).json({ error: `Language '${language}' is not supported` });
+    }
+
+    // Check if API key is configured
+    if (!RAPID_API_KEY) {
+      return res.status(500).json({ 
+        error: 'RapidAPI key not configured',
+        message: 'Please add RAPID_API_KEY to environment variables'
+      });
+    }
+
+    // Execute using RapidAPI
+    const response = await axios.post(
+      `${RAPID_API_URL}`,
+      {
+        language: langConfig.language,
+        version: langConfig.version,
+        code: code,
+        input: stdin
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'X-RapidAPI-Key': RAPID_API_KEY,
+          'X-RapidAPI-Host': RAPID_API_HOST
+        },
+        timeout: 30000
+      }
+    );
+
+    const result = response.data;
 
     res.json({
-      stdout: result.stdout,
-      stderr: result.stderr,
-      error: result.error,
+      stdout: result.output || '',
+      stderr: result.error || '',
+      error: result.error ? result.error : null,
       status: result.error ? 'Error' : 'Accepted'
     });
 
   } catch (error) {
-    console.error('Execution error:', error.message);
+    console.error('RapidAPI execution error:', error.message);
+    console.error('Error details:', error.response?.data);
     res.status(500).json({
       error: 'Code execution failed',
-      message: error.message
+      message: error.response?.data?.message || error.message
     });
   }
 });
 
 // Health check
-router.get('/health', (req, res) => {
+router.get('/health', async (req, res) => {
+  if (!RAPID_API_KEY) {
+    return res.status(500).json({ 
+      status: 'error', 
+      message: 'RapidAPI key not configured'
+    });
+  }
+  
   res.json({ 
     status: 'ok', 
-    service: 'local-execution',
-    supported: ['javascript', 'python']
+    service: 'rapidapi',
+    supported: Object.keys(LANGUAGES)
   });
 });
 
