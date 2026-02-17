@@ -2,29 +2,27 @@ const express = require('express');
 const axios = require('axios');
 const router = express.Router();
 
-// RapidAPI - Online Code Compiler
-const RAPID_API_URL = 'https://online-code-compiler.p.rapidapi.com/v1';
-const RAPID_API_KEY = process.env.RAPID_API_KEY || '';
-const RAPID_API_HOST = 'online-code-compiler.p.rapidapi.com';
+// Piston API - Official EMKC instance (FREE)
+const PISTON_API_URL = 'https://emkc.org/api/v2/piston';
 
-// Language mapping for RapidAPI
+// Language versions for Piston
 const LANGUAGES = {
-  javascript: 'nodejs',
-  python: 'python3',
-  cpp: 'cpp17',
-  c: 'c',
-  java: 'java',
-  go: 'go',
-  rust: 'rust',
-  ruby: 'ruby',
-  php: 'php',
-  typescript: 'typescript',
-  kotlin: 'kotlin',
-  swift: 'swift',
-  csharp: 'csharp',
+  javascript: { language: 'javascript', version: '18.15.0' },
+  python: { language: 'python', version: '3.10.0' },
+  cpp: { language: 'cpp', version: '10.2.0' },
+  c: { language: 'c', version: '10.2.0' },
+  java: { language: 'java', version: '15.0.2' },
+  go: { language: 'go', version: '1.16.2' },
+  rust: { language: 'rust', version: '1.68.2' },
+  ruby: { language: 'ruby', version: '3.0.1' },
+  php: { language: 'php', version: '8.2.3' },
+  typescript: { language: 'typescript', version: '5.0.3' },
+  kotlin: { language: 'kotlin', version: '1.8.20' },
+  swift: { language: 'swift', version: '5.3.3' },
+  csharp: { language: 'csharp', version: '6.12.0' },
 };
 
-// Execute code using RapidAPI
+// Execute code using Piston API
 router.post('/run', async (req, res) => {
   try {
     const { code, language, stdin = '' } = req.body;
@@ -33,33 +31,27 @@ router.post('/run', async (req, res) => {
       return res.status(400).json({ error: 'Code and language are required' });
     }
 
-    const langName = LANGUAGES[language];
-    if (!langName) {
+    const langConfig = LANGUAGES[language];
+    if (!langConfig) {
       return res.status(400).json({ error: `Language '${language}' is not supported` });
     }
 
-    // Check if API key is configured
-    if (!RAPID_API_KEY) {
-      return res.status(500).json({ 
-        error: 'RapidAPI key not configured',
-        message: 'Please add RAPID_API_KEY to environment variables'
-      });
-    }
-
-    // Execute using RapidAPI
+    // Execute using Piston API
     const response = await axios.post(
-      `${RAPID_API_URL}/`,
+      `${PISTON_API_URL}/execute`,
       {
-        language: langName,
-        versionIndex: '0',
-        code: code,
-        input: stdin
+        language: langConfig.language,
+        version: langConfig.version,
+        files: [
+          {
+            content: code
+          }
+        ],
+        stdin: stdin
       },
       {
         headers: {
-          'Content-Type': 'application/json',
-          'X-RapidAPI-Key': RAPID_API_KEY,
-          'X-RapidAPI-Host': RAPID_API_HOST
+          'Content-Type': 'application/json'
         },
         timeout: 30000
       }
@@ -68,14 +60,16 @@ router.post('/run', async (req, res) => {
     const result = response.data;
 
     res.json({
-      stdout: result.output || '',
-      stderr: result.error || '',
-      error: result.error ? result.error : null,
-      status: result.error ? 'Error' : 'Accepted'
+      stdout: result.run?.stdout || '',
+      stderr: result.run?.stderr || '',
+      error: result.run?.stderr || result.compile?.stderr || null,
+      status: result.run?.code === 0 ? 'Accepted' : 'Error',
+      time: result.run?.runtime ? `${result.run.runtime}ms` : '0ms',
+      memory: result.run?.memory ? `${result.run.memory}KB` : '0KB'
     });
 
   } catch (error) {
-    console.error('RapidAPI execution error:', error.message);
+    console.error('Piston execution error:', error.message);
     console.error('Error details:', error.response?.data);
     res.status(500).json({
       error: 'Code execution failed',
@@ -84,20 +78,39 @@ router.post('/run', async (req, res) => {
   }
 });
 
+// Get available runtimes
+router.get('/runtimes', async (req, res) => {
+  try {
+    const response = await axios.get(`${PISTON_API_URL}/runtimes`);
+    res.json(response.data);
+  } catch (error) {
+    console.error('Failed to fetch runtimes:', error.message);
+    res.status(500).json({ error: 'Failed to fetch runtimes' });
+  }
+});
+
 // Health check
 router.get('/health', async (req, res) => {
-  if (!RAPID_API_KEY) {
-    return res.status(500).json({ 
+  try {
+    const response = await axios.post(
+      `${PISTON_API_URL}/execute`,
+      {
+        language: 'python',
+        version: '3.10.0',
+        files: [{ content: 'print("test")' }]
+      }
+    );
+    res.json({ 
+      status: 'ok', 
+      service: 'piston',
+      test: response.data.run?.stdout 
+    });
+  } catch (error) {
+    res.status(500).json({ 
       status: 'error', 
-      message: 'RapidAPI key not configured'
+      message: error.message 
     });
   }
-  
-  res.json({ 
-    status: 'ok', 
-    service: 'rapidapi',
-    supported: Object.keys(LANGUAGES)
-  });
 });
 
 module.exports = router;
