@@ -12,8 +12,6 @@ const DashboardContent = () => {
   return (
     <div className="flex flex-col min-h-screen bg-black text-white">
       <div className="flex-1 p-6 overflow-y-auto">
-        <HomeNavbar />
-
         <div className="mt-6 space-y-8">
           {/* HERO BANNER */}
           <div className="h-64 rounded-2xl bg-gradient-to-br from-purple-800 via-purple-950 to-black border border-purple-500/20 flex flex-col items-center justify-center text-center p-8 relative overflow-hidden group">
@@ -36,7 +34,7 @@ const DashboardContent = () => {
               </h3>
               <button className="text-sm text-purple-500 hover:underline">View All</button>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {[1, 2, 3].map(i => (
                 <div key={i} className="bg-gray-950 border border-gray-800 p-5 rounded-2xl hover:border-purple-500/50 transition-all group">
@@ -52,7 +50,7 @@ const DashboardContent = () => {
                     <div className="text-purple-500 italic">VS</div>
                     <div className="text-center">
                       <div className="w-10 h-10 bg-gray-900 rounded-full mb-2 mx-auto border border-gray-800"></div>
-                      Player_{i+5}
+                      Player_{i + 5}
                     </div>
                   </div>
                 </div>
@@ -61,7 +59,7 @@ const DashboardContent = () => {
           </div>
         </div>
       </div>
-      
+
       {/* Footer */}
       <Footer />
     </div>
@@ -70,7 +68,7 @@ const DashboardContent = () => {
 
 const Home = () => {
   return (
-    <MainLayout>
+    <MainLayout navbar={<HomeNavbar />}>
       <DashboardContent />
     </MainLayout>
   );
