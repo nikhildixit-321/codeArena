@@ -48,9 +48,9 @@ app.use(session({
   }),
   cookie: {
     maxAge: 1000 * 60 * 60 * 24, // 1 day
-    secure: true, // Always true for cross-origin in production
+    secure: process.env.NODE_ENV === 'production', // Set to false for development
     httpOnly: true,
-    sameSite: 'none' // Required for cross-origin cookies
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax' // 'none' for cross-origin in production, 'lax' for development
   }
 }));
 

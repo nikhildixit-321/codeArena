@@ -36,13 +36,17 @@ router.post('/run', async (req, res) => {
       return res.status(400).json({ error: `Language '${language}' is not supported` });
     }
 
+    // Encode the source code and stdin in base64 as required by Judge0 free tier
+    const encodedCode = Buffer.from(code, 'utf8').toString('base64');
+    const encodedStdin = Buffer.from(stdin, 'utf8').toString('base64');
+
     // Submit code to Judge0 CE (FREE) - wait=true for sync execution
     const response = await axios.post(
-      `${JUDGE0_API_URL}/submissions?wait=true`,
+      `${JUDGE0_API_URL}/submissions?wait=true&base64_encoded=true`,
       {
-        source_code: code,
+        source_code: encodedCode,
         language_id: languageId,
-        stdin: stdin
+        stdin: encodedStdin
       },
       {
         headers: {
@@ -54,15 +58,26 @@ router.post('/run', async (req, res) => {
 
     const result = response.data;
 
+    // Decode base64 responses from Judge0
+    const decodeBase64 = (str) => {
+      if (!str) return '';
+      try {
+        return Buffer.from(str, 'base64').toString('utf8');
+      } catch (error) {
+        console.error('Base64 decode error:', error);
+        return str; // Return original string if decoding fails
+      }
+    };
+
     res.json({
-      stdout: result.stdout || '',
-      stderr: result.stderr || '',
-      compile_output: result.compile_output || '',
+      stdout: decodeBase64(result.stdout) || '',
+      stderr: decodeBase64(result.stderr) || '',
+      compile_output: decodeBase64(result.compile_output) || '',
       message: result.message || '',
       status: result.status?.description || 'Unknown',
       time: result.time || '0',
       memory: result.memory || 0,
-      error: result.stderr || result.compile_output || null
+      error: decodeBase64(result.stderr) || decodeBase64(result.compile_output) || null
     });
 
   } catch (error) {
@@ -88,17 +103,29 @@ router.get('/languages', async (req, res) => {
 // Health check
 router.get('/health', async (req, res) => {
   try {
+    const encodedTestCode = Buffer.from('print("test")', 'utf8').toString('base64');
     const response = await axios.post(
-      `${JUDGE0_API_URL}/submissions?wait=true`,
+      `${JUDGE0_API_URL}/submissions?wait=true&base64_encoded=true`,
       {
-        source_code: 'print("test")',
+        source_code: encodedTestCode,
         language_id: 71
       }
     );
+    // Decode the test response
+    const decodeBase64 = (str) => {
+      if (!str) return '';
+      try {
+        return Buffer.from(str, 'base64').toString('utf8');
+      } catch (error) {
+        console.error('Base64 decode error:', error);
+        return str; // Return original string if decoding fails
+      }
+    };
+
     res.json({ 
       status: 'ok', 
       service: 'judge0-ce',
-      test: response.data.stdout 
+      test: decodeBase64(response.data.stdout) 
     });
   } catch (error) {
     res.status(500).json({ 
