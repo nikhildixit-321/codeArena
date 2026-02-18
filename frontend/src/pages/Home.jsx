@@ -27,7 +27,7 @@ export default function Home() {
           {/* CENTER CONTENT */}
           <div className="flex-1 p-6">
 
-            <HomeNavbar />
+            
 
             <div className="mt-6 space-y-6">
               <div className="h-60 rounded-xl bg-gradient-to-br from-purple-800 to-black flex items-center justify-center">
