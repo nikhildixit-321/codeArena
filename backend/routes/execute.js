@@ -2,27 +2,27 @@ const express = require('express');
 const axios = require('axios');
 const router = express.Router();
 
-// Self-hosted Piston API
-const PISTON_API_URL = 'http://localhost:2000/api/v2';
+// Judge0 CE - FREE Public API (No API Key Required)
+const JUDGE0_API_URL = 'https://ce.judge0.com';
 
-// Language versions for Piston
-const LANGUAGES = {
-  javascript: { language: 'javascript', version: '18.15.0' },
-  python: { language: 'python', version: '3.10.0' },
-  cpp: { language: 'cpp', version: '10.2.0' },
-  c: { language: 'c', version: '10.2.0' },
-  java: { language: 'java', version: '15.0.2' },
-  go: { language: 'go', version: '1.16.2' },
-  rust: { language: 'rust', version: '1.68.2' },
-  ruby: { language: 'ruby', version: '3.0.1' },
-  php: { language: 'php', version: '8.2.3' },
-  typescript: { language: 'typescript', version: '5.0.3' },
-  kotlin: { language: 'kotlin', version: '1.8.20' },
-  swift: { language: 'swift', version: '5.3.3' },
-  csharp: { language: 'csharp', version: '6.12.0' },
+// Language IDs for Judge0
+const LANGUAGE_IDS = {
+  javascript: 63,  // Node.js
+  python: 71,      // Python 3
+  cpp: 54,         // C++ (GCC 9.2.0)
+  c: 50,           // C (GCC 9.2.0)
+  java: 62,        // Java (OpenJDK 13.0.1)
+  go: 60,          // Go
+  rust: 73,        // Rust
+  ruby: 72,        // Ruby
+  php: 68,         // PHP
+  typescript: 74,  // TypeScript
+  kotlin: 78,      // Kotlin
+  swift: 83,       // Swift
+  csharp: 51,      // C# (Mono 6.6.0.161)
 };
 
-// Execute code using Piston
+// Execute code using Judge0 CE (FREE)
 router.post('/run', async (req, res) => {
   try {
     const { code, language, stdin = '' } = req.body;
@@ -31,70 +31,80 @@ router.post('/run', async (req, res) => {
       return res.status(400).json({ error: 'Code and language are required' });
     }
 
-    const langConfig = LANGUAGES[language];
-    if (!langConfig) {
-      return res.status(400).json({ error: `Language '${language}' not supported` });
+    const languageId = LANGUAGE_IDS[language];
+    if (!languageId) {
+      return res.status(400).json({ error: `Language '${language}' is not supported` });
     }
 
+    // Submit code to Judge0 CE (FREE) - wait=true for sync execution
     const response = await axios.post(
-      `${PISTON_API_URL}/execute`,
+      `${JUDGE0_API_URL}/submissions?wait=true`,
       {
-        language: langConfig.language,
-        version: langConfig.version,
-        files: [{ content: code }],
+        source_code: code,
+        language_id: languageId,
         stdin: stdin
       },
-      { headers: { 'Content-Type': 'application/json' }, timeout: 30000 }
+      {
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        timeout: 30000
+      }
     );
 
     const result = response.data;
+
     res.json({
-      stdout: result.run?.stdout || '',
-      stderr: result.run?.stderr || '',
-      error: result.run?.stderr || null,
-      status: result.run?.code === 0 ? 'Accepted' : 'Error'
+      stdout: result.stdout || '',
+      stderr: result.stderr || '',
+      compile_output: result.compile_output || '',
+      message: result.message || '',
+      status: result.status?.description || 'Unknown',
+      time: result.time || '0',
+      memory: result.memory || 0,
+      error: result.stderr || result.compile_output || null
     });
 
   } catch (error) {
-    console.error('Piston error:', error.message);
+    console.error('Judge0 execution error:', error.message);
+    console.error('Error details:', error.response?.data);
     res.status(500).json({
-      error: 'Execution failed',
+      error: 'Code execution failed',
       message: error.response?.data?.message || error.message
     });
   }
 });
 
-// Install language
-router.post('/install/:language', async (req, res) => {
+// Get supported languages
+router.get('/languages', async (req, res) => {
   try {
-    const { language } = req.params;
-    const langConfig = LANGUAGES[language];
-    
-    if (!langConfig) {
-      return res.status(400).json({ error: 'Language not supported' });
-    }
-
-    const response = await axios.post(
-      `${PISTON_API_URL}/packages`,
-      {
-        language: langConfig.language,
-        version: langConfig.version
-      }
-    );
-
-    res.json({ message: 'Installing...', data: response.data });
+    const response = await axios.get(`${JUDGE0_API_URL}/languages`);
+    res.json(response.data);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Failed to fetch languages' });
   }
 });
 
-// Get installed runtimes
-router.get('/runtimes', async (req, res) => {
+// Health check
+router.get('/health', async (req, res) => {
   try {
-    const response = await axios.get(`${PISTON_API_URL}/runtimes`);
-    res.json(response.data);
+    const response = await axios.post(
+      `${JUDGE0_API_URL}/submissions?wait=true`,
+      {
+        source_code: 'print("test")',
+        language_id: 71
+      }
+    );
+    res.json({ 
+      status: 'ok', 
+      service: 'judge0-ce',
+      test: response.data.stdout 
+    });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ 
+      status: 'error', 
+      message: error.message 
+    });
   }
 });
 
