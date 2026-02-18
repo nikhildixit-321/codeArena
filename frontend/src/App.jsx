@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { useState } from 'react';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import AuthCallback from './pages/auth/AuthCallback';
@@ -22,6 +23,7 @@ const AuthOverlay = () => {
 
   return (
     <div className="relative min-h-screen bg-[#0d1117] overflow-hidden">
+     
       {/* Blurred Background Home */}
       <div className="absolute inset-0 blur-sm scale-105 opacity-50 pointer-events-none">
         <Home />
@@ -51,18 +53,20 @@ export default function App() {
   return (
     <AuthProvider>
       <Router>
-        <Routes>
-          <Route path="/" element={<AuthOverlay />} />
-          <Route path="/auth/callback" element={<AuthCallback />} />
-          <Route path="/dashboard" element={<PrivateRoute><Home /></PrivateRoute>} />
-          <Route path="/practice" element={<PrivateRoute><PracticeHome /></PrivateRoute>} />
-          <Route path="/practice/arena" element={<PrivateRoute><PracticeArena /></PrivateRoute>} />
-          <Route path="/ide" element={<PrivateRoute><IDE /></PrivateRoute>} />
-          <Route path="/matchmaking" element={<PrivateRoute><Matchmaking /></PrivateRoute>} />
-          <Route path="/arena/:matchId" element={<PrivateRoute><MatchArena /></PrivateRoute>} />
-          <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
-          <Route path="*" element={<Navigate to="/" />} />
-        </Routes>
+        <TooltipProvider>
+          <Routes>
+            <Route path="/" element={<AuthOverlay />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
+            <Route path="/dashboard" element={<PrivateRoute><Home /></PrivateRoute>} />
+            <Route path="/practice" element={<PrivateRoute><PracticeHome /></PrivateRoute>} />
+            <Route path="/practice/arena" element={<PrivateRoute><PracticeArena /></PrivateRoute>} />
+            <Route path="/ide" element={<PrivateRoute><IDE /></PrivateRoute>} />
+            <Route path="/matchmaking" element={<PrivateRoute><Matchmaking /></PrivateRoute>} />
+            <Route path="/arena/:matchId" element={<PrivateRoute><MatchArena /></PrivateRoute>} />
+            <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
+            <Route path="*" element={<Navigate to="/" />} />
+          </Routes>
+        </TooltipProvider>
       </Router>
     </AuthProvider>
   );
