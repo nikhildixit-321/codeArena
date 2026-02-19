@@ -3,6 +3,8 @@ import { useLocation } from 'react-router-dom';
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { AppSidebar } from "./AppSidebar"
 
+import ChallengeNotification from './ChallengeNotification';
+
 const MainLayout = ({ children, navbar }) => {
     const location = useLocation();
     // Auto-collapse sidebar on IDE and Arena pages for maximum space
@@ -20,6 +22,7 @@ const MainLayout = ({ children, navbar }) => {
     return (
         <SidebarProvider open={open} onOpenChange={setOpen}>
             <div className="flex flex-col h-screen w-full bg-background overflow-hidden transition-colors duration-300">
+                <ChallengeNotification />
                 {/* Optional Top Navbar */}
                 {navbar && (
                     <div className="w-full shrink-0 border-b border-border bg-background z-20">
