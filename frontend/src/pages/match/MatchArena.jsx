@@ -34,12 +34,17 @@ const MatchArena = () => {
   const [result, setResult] = useState(null);
   const [opponentSubmitted, setOpponentSubmitted] = useState(false);
   const [matchEnded, setMatchEnded] = useState(null);
-  const [timeLeft, setTimeLeft] = useState(600); // 10 minutes
+  const [timeLeft, setTimeLeft] = useState(matchData.duration || 600); // Default to match duration or 10 min
   const [isTerminalOpen, setIsTerminalOpen] = useState(true);
-  const [activeTab, setActiveTab] = useState('description'); // description, submissions
+  const [activeTab, setActiveTab] = useState('description');
 
   useEffect(() => {
     if (!socket.connected) socket.connect();
+
+    // Re-sync duration if it came late or from socket update (optional, but good practice)
+    if (matchData.duration && timeLeft === 600) {
+      setTimeLeft(matchData.duration);
+    }
 
     socket.on('opponentSubmitted', () => {
       setOpponentSubmitted(true);
@@ -255,8 +260,8 @@ const MatchArena = () => {
                 <div className="flex items-center justify-between">
                   <h2 className="text-2xl font-black text-white">{matchData.question?.title}</h2>
                   <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase border ${matchData.question?.difficulty === 'Hard' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
-                      matchData.question?.difficulty === 'Medium' ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' :
-                        'bg-green-500/10 text-green-400 border-green-500/20'
+                    matchData.question?.difficulty === 'Medium' ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' :
+                      'bg-green-500/10 text-green-400 border-green-500/20'
                     }`}>
                     {matchData.question?.difficulty}
                   </span>

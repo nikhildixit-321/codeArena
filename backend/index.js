@@ -125,13 +125,15 @@ io.on('connection', (socket) => {
         const matchData = {
           matchId: newMatch._id,
           question,
-          opponent: { username: opponent.username, rating: opponent.rating }
+          opponent: { username: opponent.username, rating: opponent.rating },
+          duration: question.timeLimit || (question.difficulty === 'Hard' ? 45 * 60 : question.difficulty === 'Medium' ? 30 * 60 : 15 * 60)
         };
 
         const matchDataOpponent = {
           matchId: newMatch._id,
           question,
-          opponent: { username: user.username, rating: user.rating }
+          opponent: { username: user.username, rating: user.rating },
+          duration: question.timeLimit || (question.difficulty === 'Hard' ? 45 * 60 : question.difficulty === 'Medium' ? 30 * 60 : 15 * 60)
         };
 
         io.to(opponent.socketId).emit('matchFound', matchDataOpponent);
@@ -139,9 +141,70 @@ io.on('connection', (socket) => {
       } else {
         waitingQueue.push(player);
         socket.emit('waiting', { message: 'Searching for opponent...' });
+
+        // Broadcast to all other connected users that a challenger is waiting
+        socket.broadcast.emit('newChallenger', {
+          challengerId: user._id,
+          username: user.username,
+          rating: user.rating,
+          avatar: user.avatar
+        });
       }
     } catch (err) {
       console.error('Matchmaking error:', err);
+    }
+  });
+
+  socket.on('acceptChallenge', async ({ challengerId, acceptorId }) => {
+    try {
+      const challenger = waitingQueue.find(p => p.userId.toString() === challengerId.toString());
+      if (!challenger) {
+        socket.emit('error', { message: 'Challenge no longer available' });
+        return;
+      }
+
+      const acceptorUser = await User.findById(acceptorId);
+      if (!acceptorUser) return;
+
+      // Remove challenger from queue
+      waitingQueue = waitingQueue.filter(p => p.userId.toString() !== challengerId.toString());
+
+      // Select random question
+      const question = await Question.findOne().skip(Math.floor(Math.random() * await Question.countDocuments()));
+
+      // Calculate duration
+      const duration = question.timeLimit || (question.difficulty === 'Hard' ? 45 * 60 : question.difficulty === 'Medium' ? 30 * 60 : 15 * 60);
+
+      // Create match
+      const newMatch = await Match.create({
+        players: [
+          { user: challenger.userId, socketId: challenger.socketId, status: 'ready' },
+          { user: acceptorUser._id, socketId: socket.id, status: 'ready' }
+        ],
+        question: question._id,
+        status: 'active',
+        startTime: new Date()
+      });
+
+      const matchDataChallenger = {
+        matchId: newMatch._id,
+        question,
+        opponent: { username: acceptorUser.username, rating: acceptorUser.rating },
+        duration
+      };
+
+      const matchDataAcceptor = {
+        matchId: newMatch._id,
+        question,
+        opponent: { username: challenger.username, rating: challenger.rating },
+        duration
+      };
+
+      io.to(challenger.socketId).emit('matchFound', matchDataChallenger);
+      io.to(socket.id).emit('matchFound', matchDataAcceptor);
+
+    } catch (err) {
+      console.error('Accept challenge error:', err);
     }
   });
 
