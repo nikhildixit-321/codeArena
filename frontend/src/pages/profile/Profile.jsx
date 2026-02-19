@@ -242,12 +242,20 @@ const Profile = () => {
             {/* Overview Tab */}
             {activeTab === 'overview' && (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <StatCard icon={Gamepad2} label="Matches Played" value={stats.totalMatches} color="blue" />
-                <StatCard icon={Trophy} label="Total Wins" value={stats.wins} color="green" />
-                <StatCard icon={Target} label="Win Rate" value={stats.winRate} color="yellow" />
-                <StatCard icon={Flame} label="Current Streak" value={`${stats.streak} 🔥`} color="orange" />
+                <div className="animate-in fade-in zoom-in duration-500 delay-0 fill-mode-backwards">
+                  <StatCard icon={Gamepad2} label="Matches Played" value={stats.totalMatches} color="blue" />
+                </div>
+                <div className="animate-in fade-in zoom-in duration-500 delay-100 fill-mode-backwards">
+                  <StatCard icon={Trophy} label="Total Wins" value={stats.wins} color="green" />
+                </div>
+                <div className="animate-in fade-in zoom-in duration-500 delay-200 fill-mode-backwards">
+                  <StatCard icon={Target} label="Win Rate" value={stats.winRate} color="yellow" />
+                </div>
+                <div className="animate-in fade-in zoom-in duration-500 delay-300 fill-mode-backwards">
+                  <StatCard icon={Flame} label="Current Streak" value={`${stats.streak} 🔥`} color="orange" />
+                </div>
 
-                <div className="col-span-full mt-2">
+                <div className="col-span-full mt-2 animate-in slide-in-from-bottom-4 duration-700 delay-500 fill-mode-backwards">
                   <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
                     <Award className="text-purple-500" /> Recent Achievements
                   </h3>

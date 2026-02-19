@@ -74,6 +74,7 @@ class Solution {
   const [timeLeft, setTimeLeft] = useState(matchData.duration || 600); // Default to match duration or 10 min
   const [isTerminalOpen, setIsTerminalOpen] = useState(true);
   const [activeTab, setActiveTab] = useState('description');
+  const [submissions, setSubmissions] = useState([]);
 
   useEffect(() => {
     setCode(STARTER_CODE[language] || '// Write code here');
@@ -144,8 +145,9 @@ class Solution {
 
     socket.on('submissionResult', (data) => {
       setResult(data.judgment);
-      setIsTerminalOpen(true); // Open console on result
-      // Optional: setActiveTab('submissions') if you want that too, but console is better
+      setIsTerminalOpen(true);
+      setSubmissions(prev => [data.judgment, ...prev]); // Add to history
+      setActiveTab('submissions'); // Switch to tab as requested
     });
 
     socket.on('matchEnded', (data) => {
@@ -391,8 +393,27 @@ class Solution {
                 </div>
               </div>
             ) : (
-              <div className="text-center py-20 text-gray-500">
-                <p>No previous submissions in this match.</p>
+              <div className="space-y-4">
+                {submissions.length === 0 ? (
+                  <div className="text-center py-20 text-gray-500">
+                    <p>No previous submissions in this match.</p>
+                  </div>
+                ) : (
+                  submissions.map((sub, idx) => (
+                    <div key={idx} className={`p-4 rounded-xl border ${sub.allPassed ? 'bg-green-500/10 border-green-500/20' : 'bg-red-500/10 border-red-500/20'}`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className={`font-bold text-sm ${sub.allPassed ? 'text-green-400' : 'text-red-400'}`}>
+                          {sub.allPassed ? 'Accepted' : 'Wrong Answer'}
+                        </span>
+                        <span className="text-xs text-gray-500">{new Date().toLocaleTimeString()}</span>
+                      </div>
+                      <div className="flex items-center gap-4 text-xs text-gray-400">
+                        <span>Time: {sub.avgTime || sub.totalTime}</span>
+                        <span>{sub.results.filter(r => r.passed).length}/{sub.results.length} Test Cases</span>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             )}
           </div>

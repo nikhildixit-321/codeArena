@@ -98,6 +98,51 @@ const PracticeArena = () => {
     }, 1200);
   };
 
+  const handleSubmit = async () => {
+    if (!code.trim()) return;
+    setIsRunning(true);
+    setOutput('Submitting...\n');
+
+    try {
+      // 1. Run the code first to check for basic errors
+      const runResponse = await api.post('/execute/run', { code, language });
+
+      if (runResponse.data.error || runResponse.data.stderr) {
+        setOutput(prev => prev + `[Error] Code execution failed. Fix errors before submitting.\n${runResponse.data.stderr || runResponse.data.error}\n`);
+        setIsRunning(false);
+        if (!isTerminalOpen) setIsTerminalOpen(true);
+        return;
+      }
+
+      const { stdout } = runResponse.data;
+      setOutput(prev => prev + `[Output]\n${stdout}\n\nRunning Submission...\n`);
+
+      // 2. If no errors, proceed to submit (In a real app, this would run against hidden test cases)
+      // For now, we assume simple execution success = Pass
+
+      const submitResponse = await api.post('/execute/submit-practice', {
+        questionId: question?._id,
+        passed: true // Simulating pass
+      });
+
+      if (submitResponse.data.points) {
+        setOutput(prev => prev + `\n✅ Success! ${submitResponse.data.message}\n` +
+          `Points: ${submitResponse.data.points} (+5)\n` +
+          `Streak: ${submitResponse.data.streak} 🔥\n`);
+
+        // Could also trigger a confetti effect or modal here
+      } else {
+        setOutput(prev => prev + `\nReceived: ${submitResponse.data.message}\n`);
+      }
+
+    } catch (err) {
+      setOutput(prev => prev + `Submission Error: ${err.message}\n`);
+    } finally {
+      setIsRunning(false);
+      if (!isTerminalOpen) setIsTerminalOpen(true);
+    }
+  };
+
   if (!question) {
     return (
       <MainLayout>
@@ -133,7 +178,7 @@ const PracticeArena = () => {
             </button>
             <div className="flex items-center gap-2">
               <span className={`w-2 h-2 rounded-full ${question.difficulty === 'Easy' ? 'bg-green-500' :
-                  question.difficulty === 'Medium' ? 'bg-yellow-500' : 'bg-red-500'
+                question.difficulty === 'Medium' ? 'bg-yellow-500' : 'bg-red-500'
                 }`}></span>
               <h1 className="font-bold whitespace-nowrap overflow-hidden text-ellipsis max-w-[200px] md:max-w-md">
                 {question.title}
@@ -172,6 +217,8 @@ const PracticeArena = () => {
             </button>
 
             <button
+              onClick={handleSubmit}
+              disabled={isRunning}
               className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-sm transition-all shadow-sm flex items-center gap-2"
             >
               <Send size={16} /> Submit
@@ -323,8 +370,8 @@ const PracticeArena = () => {
                   {aiMessages.map((msg, i) => (
                     <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                       <div className={`max-w-[85%] p-3 rounded-2xl text-sm ${msg.role === 'user'
-                          ? 'bg-primary text-primary-foreground rounded-br-none'
-                          : 'bg-card border border-border rounded-bl-none text-foreground'
+                        ? 'bg-primary text-primary-foreground rounded-br-none'
+                        : 'bg-card border border-border rounded-bl-none text-foreground'
                         }`}>
                         {msg.content}
                       </div>
