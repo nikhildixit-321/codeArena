@@ -1,5 +1,6 @@
 const express = require('express');
 const axios = require('axios');
+const User = require('../models/User');
 const router = express.Router();
 
 // Judge0 CE - FREE Public API (No API Key Required)
@@ -122,16 +123,45 @@ router.get('/health', async (req, res) => {
       }
     };
 
-    res.json({ 
-      status: 'ok', 
+    res.json({
+      status: 'ok',
       service: 'judge0-ce',
-      test: decodeBase64(response.data.stdout) 
+      test: decodeBase64(response.data.stdout)
     });
   } catch (error) {
-    res.status(500).json({ 
-      status: 'error', 
-      message: error.message 
+    res.status(500).json({
+      status: 'error',
+      message: error.message
     });
+  }
+});
+
+// Submit Practice Code (Awards Points only, no Ranking change)
+router.post('/submit-practice', async (req, res) => {
+  try {
+    const { userId, questionId, passed } = req.body;
+
+    // Simple point reward logic
+    if (passed) {
+      // Find user and increment points
+      // Assuming we have User model access via req or import
+      // Since this file doesn't import User, we might need to move this or import it.
+      // Let's assume User is imported or passed via middleware usually, but here:
+      // We'll return success and handle DB update if we import User.
+
+      // Actually, this route file doesn't import User. Import it first.
+      const user = await User.findById(userId);
+      if (user) {
+        user.points += 5; // +5 points per practice solve
+        await user.save();
+        return res.json({ message: 'Points awarded!', points: user.points });
+      }
+    }
+
+    res.json({ message: 'Submission recorded.' });
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 });
 

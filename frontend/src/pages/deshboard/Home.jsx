@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import api from '../../api/axios';
 import HomeNavbar from "../../components/Navbar";
 import MainLayout from '../../components/MainLayout';
 import {
@@ -15,8 +16,11 @@ const DashboardContent = () => {
   const [stats, setStats] = useState({
     rating: 1200,
     matchesPlayed: 0,
-    matchesWon: 0
+    matchesWon: 0,
+    streak: 0
   });
+  const [liveMatches, setLiveMatches] = useState([]);
+  const [loadingMatches, setLoadingMatches] = useState(true);
 
   useEffect(() => {
     // API integration here
@@ -24,9 +28,34 @@ const DashboardContent = () => {
       setStats({
         rating: user.rating || 1200,
         matchesPlayed: user.matchesPlayed || 0,
-        matchesWon: user.matchesWon || 0
+        matchesWon: user.matchesWon || 0,
+        streak: user.streak?.current || 0
       })
     }
+
+    // Fetch Live Matches
+    const fetchLiveMatches = async () => {
+      try {
+        // We need to import api first, but it's not imported in this file snippet.
+        // Let's assume we can add import, or use fetch. 
+        // Better: Add import at top via separate replace if needed, or assume global api (unlikely).
+        // Actually, I can use the existing `api` instance if I import it.
+        // I will add the import in a separate block or assume it exists. 
+        // Wait, looking at file... `api` is NOT imported. `useAuth` is. 
+        // I'll add `import api from '../../api/axios';` at the top.
+
+        // For now, let's use a dynamic import or fix imports in step 1.
+        // I'll proceed assuming I fix imports.
+
+        const res = await api.get('/match/active');
+        setLiveMatches(res.data);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoadingMatches(false);
+      }
+    };
+    fetchLiveMatches(); // I'll implement proper fetch with api import below.
   }, [user]);
 
   return (
@@ -160,29 +189,39 @@ const DashboardContent = () => {
                   </h3>
                   <span className="text-xs font-mono text-gray-500">Updating live...</span>
                 </div>
-                <div className="bg-[#0e0e12] border border-white/5 rounded-2xl overflow-hidden">
-                  {[1, 2, 3].map((match, i) => (
-                    <div key={i} className="p-4 border-b border-white/5 last:border-0 hover:bg-white/[0.02] flex items-center justify-between group transition-colors">
-                      <div className="flex items-center gap-4">
-                        <div className="flex -space-x-2">
-                          <div className="w-8 h-8 rounded-full bg-gray-800 border border-gray-900 flex items-center justify-center text-[10px] font-bold">A</div>
-                          <div className="w-8 h-8 rounded-full bg-gray-700 border border-gray-900 flex items-center justify-center text-[10px] font-bold">B</div>
+                <div className="bg-[#0e0e12] border border-white/5 rounded-2xl overflow-hidden min-h-[100px]">
+                  {loadingMatches ? (
+                    <div className="p-4 text-center text-gray-500 text-sm">Loading battles...</div>
+                  ) : liveMatches.length === 0 ? (
+                    <div className="p-8 text-center text-gray-500 text-sm">No active battles right now. Be the first!</div>
+                  ) : (
+                    liveMatches.map((match, i) => (
+                      <div key={match._id || i} className="p-4 border-b border-white/5 last:border-0 hover:bg-white/[0.02] flex items-center justify-between group transition-colors">
+                        <div className="flex items-center gap-4">
+                          <div className="flex -space-x-2">
+                            {match.players?.slice(0, 2).map((p, idx) => (
+                              <div key={idx} className="w-8 h-8 rounded-full bg-gray-800 border-2 border-[#0e0e12] overflow-hidden flex items-center justify-center text-[10px] font-bold" title={p.user?.username}>
+                                {p.user?.avatar ? <img src={p.user.avatar} alt="u" className="w-full h-full object-cover" /> : (p.user?.username?.[0]?.toUpperCase() || 'U')}
+                              </div>
+                            ))}
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-sm font-bold text-gray-200 group-hover:text-sky-400 transition-colors truncate max-w-[120px]">
+                              {match.question?.title || 'Unknown Problem'}
+                            </span>
+                            <span className="text-[10px] text-gray-500 uppercase tracking-wide">
+                              {match.question?.difficulty || 'Medium'} • {match.status}
+                            </span>
+                          </div>
                         </div>
-                        <div className="flex flex-col">
-                          <span className="text-sm font-bold text-gray-200 group-hover:text-sky-400 transition-colors">Two Sum II</span>
-                          <span className="text-[10px] text-gray-500 uppercase tracking-wide">Medium • Python</span>
+                        <div className="flex items-center gap-3">
+                          <span className="px-2 py-1 bg-red-500/10 text-red-500 text-[10px] font-bold uppercase rounded flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span> Live
+                          </span>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <span className="px-2 py-1 bg-red-500/10 text-red-500 text-[10px] font-bold uppercase rounded flex items-center gap-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span> Live
-                        </span>
-                        <button className="p-2 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition-colors">
-                          <PlayCircle size={16} />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </div>
             </div>

@@ -132,3 +132,37 @@ exports.getLeaderboard = async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 };
+
+// Get Active Battles
+exports.getActiveMatches = async (req, res) => {
+    try {
+        const matches = await Match.find({ status: 'active' })
+            .sort({ startTime: -1 })
+            .limit(10)
+            .populate('players.user', 'username avatar rating') // Populate player details
+            .populate('question', 'title difficulty'); // Populate question details
+
+        res.json(matches);
+    } catch (err) {
+        console.error('Error fetching active matches:', err);
+        res.status(500).json({ error: 'Failed to fetch active matches' });
+    }
+};
+
+// Get Match Details by ID
+exports.getMatchDetails = async (req, res) => {
+    try {
+        const match = await Match.findById(req.params.matchId)
+            .populate('question')
+            .populate('players.user', 'username rating avatar');
+
+        if (!match) return res.status(404).json({ error: 'Match not found' });
+
+        // Return match data structure similar to socket event
+        // Identify opponent based on req.user (if auth middleware sets req.user)
+        // For simplicity, return full match object and let frontend parse
+        res.json(match);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};

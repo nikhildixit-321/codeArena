@@ -17,6 +17,16 @@ const ChallengeNotification = () => {
             // Don't notify if I am the challenger (shouldn't happen with broadcast, but safety check)
             if (data.challengerId === user._id) return;
 
+            // Filter by rating: user must be within 150 points of challenger
+            const userRating = user.rating !== undefined ? user.rating : 600;
+            const challengerRating = data.rating !== undefined ? data.rating : 600;
+
+            const ratingDiff = Math.abs(userRating - challengerRating);
+            if (ratingDiff > 150) {
+                console.log("Ignored challenge due to rating difference:", ratingDiff);
+                return;
+            }
+
             console.log('New Challenger Reiveced:', data);
             setChallenger(data);
 

@@ -18,11 +18,11 @@ const generateToken = (user) => {
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
-  
+
   if (!token) {
     return res.status(401).json({ message: 'No token provided' });
   }
-  
+
   jwt.verify(token, process.env.SESSION_SECRET, (err, user) => {
     if (err) return res.status(403).json({ message: 'Invalid token' });
     req.user = user;
@@ -55,7 +55,7 @@ router.post('/login', (req, res, next) => {
   passport.authenticate('local', { session: false }, (err, user, info) => {
     if (err) return next(err);
     if (!user) return res.status(401).json(info);
-    
+
     const token = generateToken(user);
     return res.json({ message: 'Logged in successfully', user, token });
   })(req, res, next);
@@ -71,7 +71,7 @@ router.get('/logout', (req, res) => {
 
 // Google Auth
 router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
-router.get('/google/callback', 
+router.get('/google/callback',
   passport.authenticate('google', { failureRedirect: `${process.env.FRONTEND_URL}/login`, session: false }),
   (req, res) => {
     const token = generateToken(req.user);
@@ -81,7 +81,7 @@ router.get('/google/callback',
 
 // GitHub Auth
 router.get('/github', passport.authenticate('github', { scope: ['user:email'] }));
-router.get('/github/callback', 
+router.get('/github/callback',
   passport.authenticate('github', { failureRedirect: `${process.env.FRONTEND_URL}/login`, session: false }),
   (req, res) => {
     const token = generateToken(req.user);
@@ -94,6 +94,41 @@ router.get('/me', authenticateToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select('-password');
     if (!user) return res.status(404).json({ message: 'User not found' });
+
+    // Daily Streak Logic
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    let lastActive = user.streak?.lastActive ? new Date(user.streak.lastActive) : null;
+    if (lastActive) lastActive.setHours(0, 0, 0, 0);
+
+    // If last active was yesterday, increment streak
+    if (lastActive) {
+      const diffTime = Math.abs(today - lastActive);
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      if (diffDays === 1) {
+        // Continued streak
+        if (user.streak.lastActive.getDate() !== new Date().getDate()) {
+          user.streak.current += 1;
+          user.streak.lastActive = new Date();
+          user.points += 10; // Bonus for streak
+          await user.save();
+        }
+      } else if (diffDays > 1) {
+        // Broken streak
+        user.streak.current = 1;
+        user.streak.lastActive = new Date();
+        await user.save();
+      }
+      // If diffDays === 0, already logged in today, do nothing
+    } else {
+      // First time
+      user.streak = { current: 1, lastActive: new Date() };
+      user.points += 5; // First login bonus
+      await user.save();
+    }
+
     res.json(user);
   } catch (err) {
     res.status(500).json({ message: err.message });
