@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useLocation, useNavigate, Link } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import socket from '../../api/socket';
+import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
 import {
   Play, Send, Trophy, Timer, Zap, Shield, Swords,
@@ -30,7 +31,43 @@ const MatchArena = () => {
     }
   });
 
-  const [code, setCode] = useState('// Write your solution here\nfunction solution(input) {\n  \n}');
+  const languages = [
+    { id: 'javascript', name: 'JavaScript' },
+    { id: 'python', name: 'Python' },
+    { id: 'cpp', name: 'C++' },
+    { id: 'java', name: 'Java' }
+  ];
+
+  const STARTER_CODE = {
+    javascript: `// Write your solution here
+function solution(nums, target) {
+  
+}`,
+    python: `# Write your solution here
+def solution(nums, target):
+    pass`,
+    cpp: `// Write your solution here
+#include <vector>
+using namespace std;
+
+class Solution {
+public:
+    vector<int> twoSum(vector<int>& nums, int target) {
+        
+    }
+};`,
+    java: `// Write your solution here
+class Solution {
+    public int[] twoSum(int[] nums, int target) {
+        
+    }
+}`
+  };
+
+  const [language, setLanguage] = useState('javascript');
+  const [code, setCode] = useState(STARTER_CODE['javascript']);
+
+  // State
   const [result, setResult] = useState(null);
   const [opponentSubmitted, setOpponentSubmitted] = useState(false);
   const [matchEnded, setMatchEnded] = useState(null);
@@ -39,12 +76,67 @@ const MatchArena = () => {
   const [activeTab, setActiveTab] = useState('description');
 
   useEffect(() => {
+    setCode(STARTER_CODE[language] || '// Write code here');
+  }, [language]);
+
+  useEffect(() => {
+    // 1. Fetch match details if incomplete or mock
+    const fetchMatchDetails = async () => {
+      try {
+        const res = await api.get(`/match/${matchId}`);
+        const match = res.data;
+
+        // Format match data for internal state
+        // Identify opponent
+        const opponentPlayer = match.players.find(p => p.user._id !== user._id);
+        const myPlayer = match.players.find(p => p.user._id === user._id);
+
+        setMatchData({
+          _id: match._id, // Add match ID to state if needed
+          opponent: opponentPlayer ? {
+            username: opponentPlayer.user.username,
+            rating: opponentPlayer.user.rating
+          } : { username: 'Unknown', rating: 0 },
+          question: match.question,
+          duration: match.question.timeLimit || 600 // or calculate remaining
+        });
+
+        // Adjust timer?
+        // Ideally calculate remaining time based on startTime
+        if (match.startTime) {
+          const elapsed = Math.floor((new Date() - new Date(match.startTime)) / 1000);
+          const limit = match.question.timeLimit || (match.question.difficulty === 'Hard' ? 45 * 60 : match.question.difficulty === 'Medium' ? 25 * 60 : 15 * 60);
+          const remaining = Math.max(0, limit - elapsed);
+          setTimeLeft(remaining);
+        }
+
+      } catch (err) {
+        console.error("Failed to fetch match details:", err);
+      }
+    };
+
+    if (matchId && (!location.state?.matchData || matchData.question.title === "Median of Two Sorted Arrays")) {
+      fetchMatchDetails();
+    }
+
     if (!socket.connected) socket.connect();
 
     // Re-sync duration if it came late or from socket update (optional, but good practice)
     if (matchData.duration && timeLeft === 600) {
-      setTimeLeft(matchData.duration);
+      // Only set if we haven't fetched real time yet
+      // setTimeLeft(matchData.duration);
     }
+
+    // Join room just in case
+    // But socket.emit('joinQueue') is not right. We need 'rejoin'? 
+    // Usually 'acceptChallenge' joins the room. 
+    // If we refresh, we lose socket room membership!
+    // We strictly need a "rejoinMatch" socket event, but for now let's hope frontend state is enough or backend pushes events to user ID room.
+    // Actually, backend emits to `socket.id` or `matchRoom`.
+    // If socket reconnects, it has NEW ID and is NOT in room.
+    // We need to re-emit join.
+    // IMPROVEMENT: emit 'joinMatchRoom'
+    socket.emit('joinMatchRoom', { matchId });
 
     socket.on('opponentSubmitted', () => {
       setOpponentSubmitted(true);
@@ -52,6 +144,8 @@ const MatchArena = () => {
 
     socket.on('submissionResult', (data) => {
       setResult(data.judgment);
+      setIsTerminalOpen(true); // Open console on result
+      // Optional: setActiveTab('submissions') if you want that too, but console is better
     });
 
     socket.on('matchEnded', (data) => {
@@ -68,7 +162,7 @@ const MatchArena = () => {
       socket.off('matchEnded');
       clearInterval(timer);
     };
-  }, []);
+  }, [matchId, user]); // Added deps
 
   const handleSubmit = () => {
     // Simulate submission for UI demo if no backend connection
@@ -85,7 +179,7 @@ const MatchArena = () => {
       setTimeout(() => setMatchEnded({ winner: user?._id || 'me' }), 2000);
       return;
     }
-    socket.emit('submitCode', { matchId, userId: user._id, code });
+    socket.emit('submitCode', { matchId, userId: user._id, code, language });
   };
 
   const formatTime = (s) => {
@@ -267,11 +361,12 @@ const MatchArena = () => {
                   </span>
                 </div>
 
-                <div className="prose prose-invert prose-sm max-w-none text-gray-300 leading-relaxed">
-                  <p>{matchData.question?.description}</p>
+                <div className="prose prose-invert prose-sm max-w-none text-gray-300 leading-relaxed"
+                  dangerouslySetInnerHTML={{ __html: matchData.question?.description }}
+                >
                 </div>
 
-                {matchData.question?.examples?.map((ex, i) => (
+                {(matchData.question?.examples || matchData.question?.testCases?.slice(0, 2))?.map((ex, i) => (
                   <div key={i} className="bg-[#121218] rounded-xl p-4 border border-white/5">
                     <h4 className="text-xs font-bold text-gray-500 uppercase mb-2">Example {i + 1}</h4>
                     <div className="space-y-2">
@@ -308,9 +403,23 @@ const MatchArena = () => {
           {/* Editor Toolbar */}
           <div className="h-10 border-b border-white/5 flex items-center justify-between px-4 bg-[#0a0a0f]">
             <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 px-3 py-1 bg-[#15151a] rounded text-xs text-gray-300 border border-white/5">
-                <Code2 size={12} className="text-sky-400" />
-                <span>JavaScript</span>
+              <div className="relative group">
+                <button className="flex items-center gap-2 px-3 py-1 bg-[#15151a] hover:bg-[#1a1a20] rounded text-xs text-gray-300 border border-white/5 transition-colors">
+                  <Code2 size={12} className="text-sky-400" />
+                  <span className="capitalize">{languages.find(l => l.id === language)?.name}</span>
+                </button>
+                {/* Simple Dropdown */}
+                <div className="absolute top-full left-0 mt-1 w-32 bg-[#15151a] border border-white/10 rounded-lg shadow-xl overflow-hidden hidden group-hover:block z-50">
+                  {languages.map(lang => (
+                    <button
+                      key={lang.id}
+                      onClick={() => setLanguage(lang.id)}
+                      className={`w-full text-left px-3 py-2 text-xs hover:bg-white/5 transition-colors ${language === lang.id ? 'text-sky-400 font-bold' : 'text-gray-400'}`}
+                    >
+                      {lang.name}
+                    </button>
+                  ))}
+                </div>
               </div>
               <span className="text-xs text-gray-600">Auto-saved</span>
             </div>
@@ -324,7 +433,7 @@ const MatchArena = () => {
           <div className="flex-1 relative">
             <Editor
               height="100%"
-              defaultLanguage="javascript"
+              language={language}
               theme="vs-dark"
               value={code}
               onChange={setCode}
@@ -342,7 +451,10 @@ const MatchArena = () => {
             />
 
             {/* Quick Run FAB */}
-            <button className="absolute bottom-6 right-8 w-14 h-14 bg-sky-500 hover:bg-sky-400 rounded-full shadow-[0_0_30px_rgba(14,165,233,0.4)] flex items-center justify-center transition-all hover:scale-110 z-10 group">
+            <button
+              onClick={handleSubmit}
+              className="absolute bottom-6 right-8 w-14 h-14 bg-sky-500 hover:bg-sky-400 rounded-full shadow-[0_0_30px_rgba(14,165,233,0.4)] flex items-center justify-center transition-all hover:scale-110 z-10 group"
+            >
               <Play size={24} fill="black" className="ml-1 text-black" />
             </button>
           </div>
