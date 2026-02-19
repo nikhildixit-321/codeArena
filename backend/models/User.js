@@ -19,7 +19,7 @@ const UserSchema = new mongoose.Schema({
   avatar: String,
   rating: {
     type: Number,
-    default: 1200
+    default: 600
   },
   matchesPlayed: {
     type: Number,
@@ -28,6 +28,14 @@ const UserSchema = new mongoose.Schema({
   matchesWon: {
     type: Number,
     default: 0
+  },
+  points: {
+    type: Number,
+    default: 0
+  },
+  streak: {
+    current: { type: Number, default: 0 },
+    lastActive: { type: Date }
   },
   createdAt: {
     type: Date,
