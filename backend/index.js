@@ -67,6 +67,7 @@ mongoose.connect(process.env.MONGO_URI)
 app.use('/api/auth', authRoutes);
 app.use('/api/questions', questionRoutes);
 app.use('/api/execute', executeRoutes);
+app.use('/api/match', require('./routes/matchRoutes'));
 
 // Basic route
 app.get('/', (req, res) => {
@@ -154,7 +155,7 @@ io.on('connection', (socket) => {
 
       // Judge the code
       const judgment = executeCode(code, match.question.testCases);
-      
+
       match.players[playerIndex].code = code;
       match.players[playerIndex].executionTime = judgment.avgTime;
 
@@ -171,11 +172,11 @@ io.on('connection', (socket) => {
       if (allFinished) {
         match.status = 'completed';
         match.endTime = new Date();
-        
+
         // Decide winner
         const p1 = match.players[0];
         const p2 = match.players[1];
-        
+
         let winnerId = null;
         if (p1.score > p2.score) winnerId = p1.user;
         else if (p2.score > p1.score) winnerId = p2.user;
@@ -183,22 +184,22 @@ io.on('connection', (socket) => {
           // Tie-break with execution time
           winnerId = p1.executionTime < p2.executionTime ? p1.user : p2.user;
         }
-        
+
         match.winner = winnerId;
-        
+
         // Update user ratings
         if (winnerId) {
           const winner = await User.findById(winnerId);
           const loserId = match.players.find(p => p.user.toString() !== winnerId.toString()).user;
           const loser = await User.findById(loserId);
-          
+
           winner.rating += 25;
           winner.matchesPlayed += 1;
           winner.matchesWon += 1;
-          
+
           loser.rating -= 25;
           loser.matchesPlayed += 1;
-          
+
           await winner.save();
           await loser.save();
         }
