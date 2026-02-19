@@ -138,7 +138,7 @@ const Profile = () => {
         <div className="max-w-6xl mx-auto px-6 sm:px-8 relative -mt-24">
 
           {/* Header Card */}
-          <div className="bg-card rounded-2xl p-6 border border-border shadow-xl flex flex-col md:flex-row items-end md:items-center gap-6 mb-8">
+          <div className="bg-card rounded-2xl p-6 border border-border shadow-xl flex flex-col md:flex-row items-center md:items-center gap-6 mb-8 animate-in slide-in-from-bottom-8 duration-700 ease-out">
 
             {/* Avatar */}
             <div className="relative group shrink-0">
@@ -168,24 +168,24 @@ const Profile = () => {
             </div>
 
             {/* User Info */}
-            <div className="flex-1 mb-2">
-              <div className="flex items-center gap-4 mb-1">
+            <div className="flex-1 mb-2 text-center md:text-left w-full">
+              <div className="flex items-center justify-center md:justify-start gap-4 mb-1">
                 <h1 className="text-3xl font-bold">{user.username}</h1>
                 <span className="px-3 py-1 rounded-full bg-yellow-500/10 text-yellow-500 text-xs font-bold border border-yellow-500/20 flex items-center gap-1">
                   <Trophy size={12} /> Gold II
                 </span>
               </div>
-              <div className="flex items-center gap-2 text-muted-foreground mb-4">
+              <div className="flex items-center justify-center md:justify-start gap-2 text-muted-foreground mb-4">
                 <Mail size={14} />
                 <span>{user.email}</span>
               </div>
-              <p className="text-sm text-muted-foreground max-w-lg leading-relaxed">
+              <p className="text-sm text-muted-foreground max-w-lg leading-relaxed mx-auto md:mx-0">
                 {user.bio || 'Competitive programmer passionate about algorithms.'}
               </p>
             </div>
 
             {/* Quick Actions */}
-            <div className="flex gap-3 mb-4 md:mb-0">
+            <div className="flex gap-3 mb-4 md:mb-0 justify-center md:justify-start w-full md:w-auto">
               <button
                 onClick={() => setActiveTab('edit')}
                 className="flex items-center gap-2 px-4 py-2 bg-secondary hover:bg-secondary/80 text-foreground rounded-lg transition-colors font-medium text-sm"
@@ -343,7 +343,7 @@ const Profile = () => {
                         <th className="px-6 py-4">Result</th>
                         <th className="px-6 py-4">Opponent</th>
                         <th className="px-6 py-4">Score</th>
-                        <th className="px-6 py-4">Date</th>
+                        <th className="px-6 py-4 hidden sm:table-cell">Date</th>
                         <th className="px-6 py-4 text-right">Rating Change</th>
                       </tr>
                     </thead>
@@ -366,7 +366,7 @@ const Profile = () => {
                             {game.opponent}
                           </td>
                           <td className="px-6 py-4 font-mono">{game.score}</td>
-                          <td className="px-6 py-4 text-muted-foreground">{game.date}</td>
+                          <td className="px-6 py-4 text-muted-foreground hidden sm:table-cell">{game.date}</td>
                           <td className={`px-6 py-4 text-right font-bold ${game.result === 'win' ? 'text-green-500' : 'text-destructive'
                             }`}>
                             {game.result === 'win' ? '+25' : '-25'}
