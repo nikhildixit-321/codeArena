@@ -1,3 +1,4 @@
+
 /* eslint-disable react/prop-types */
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -10,6 +11,7 @@ import {
   Save, X, ChevronLeft, Gamepad2, Target, Flame,
   Medal, Clock, CheckCircle, Award, LogOut
 } from 'lucide-react';
+import EditProfile from './EditProfile';
 
 // Stat Card Component
 const StatCard = ({ icon: Icon, label, value, color }) => {
@@ -33,23 +35,14 @@ const StatCard = ({ icon: Icon, label, value, color }) => {
 };
 
 const Profile = () => {
-  const { user, checkUser, logout } = useAuth();
+  const { user, checkUser, logout, updateUser } = useAuth();
   // ... (keep state logic same as before, simplified for brevity in this view, but fully implemented in file)
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
 
   const [activeTab, setActiveTab] = useState('overview');
-  const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
-
-  // Profile data
-  const [profileData, setProfileData] = useState({
-    username: '',
-    email: '',
-    avatar: '',
-    bio: ''
-  });
 
   // Password change
   const [passwordData, setPasswordData] = useState({
@@ -67,31 +60,8 @@ const Profile = () => {
     { id: 5, opponent: 'Bug_Hunter', result: 'loss', score: '1-2', date: '2026-02-06', rating: 1205 },
   ]);
 
-  useEffect(() => {
-    if (user) {
-      setProfileData({
-        username: user.username || '',
-        email: user.email || '',
-        avatar: user.avatar || '',
-        bio: user.bio || 'Competitive programmer passionate about algorithms.'
-      });
-    }
-  }, [user]);
-
   // Handler functions
-  const handleUpdateProfile = async () => {
-    setLoading(true);
-    try {
-      await api.put('/auth/profile', profileData);
-      setMessage('Profile updated successfully!');
-      setIsEditing(false);
-      checkUser();
-    } catch (err) {
-      setMessage(err.response?.data?.message || 'Failed to update profile');
-    } finally {
-      setLoading(false);
-    }
-  };
+
 
   const handleChangePassword = async () => {
     if (passwordData.newPassword !== passwordData.confirmPassword) {
@@ -128,7 +98,7 @@ const Profile = () => {
       const res = await api.post('/auth/avatar', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      setProfileData(prev => ({ ...prev, avatar: res.data.avatarUrl }));
+      updateUser({ avatar: res.data.avatarUrl });
       setMessage('Avatar updated!');
       checkUser();
     } catch (err) {
@@ -176,8 +146,8 @@ const Profile = () => {
                 onClick={handleAvatarClick}
                 className="w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-background bg-secondary flex items-center justify-center cursor-pointer overflow-hidden shadow-2xl transition-transform group-hover:scale-105"
               >
-                {profileData.avatar ? (
-                  <img src={profileData.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                {user.avatar ? (
+                  <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover" />
                 ) : (
                   <User size={64} className="text-muted-foreground" />
                 )}
@@ -200,28 +170,28 @@ const Profile = () => {
             {/* User Info */}
             <div className="flex-1 mb-2">
               <div className="flex items-center gap-4 mb-1">
-                <h1 className="text-3xl font-bold">{profileData.username}</h1>
+                <h1 className="text-3xl font-bold">{user.username}</h1>
                 <span className="px-3 py-1 rounded-full bg-yellow-500/10 text-yellow-500 text-xs font-bold border border-yellow-500/20 flex items-center gap-1">
                   <Trophy size={12} /> Gold II
                 </span>
               </div>
               <div className="flex items-center gap-2 text-muted-foreground mb-4">
                 <Mail size={14} />
-                <span>{profileData.email}</span>
+                <span>{user.email}</span>
               </div>
               <p className="text-sm text-muted-foreground max-w-lg leading-relaxed">
-                {profileData.bio}
+                {user.bio || 'Competitive programmer passionate about algorithms.'}
               </p>
             </div>
 
             {/* Quick Actions */}
             <div className="flex gap-3 mb-4 md:mb-0">
               <button
-                onClick={() => setIsEditing(!isEditing)}
+                onClick={() => setActiveTab('edit')}
                 className="flex items-center gap-2 px-4 py-2 bg-secondary hover:bg-secondary/80 text-foreground rounded-lg transition-colors font-medium text-sm"
               >
                 <Edit2 size={16} />
-                {isEditing ? 'Cancel Edit' : 'Edit Profile'}
+                Edit Profile
               </button>
               <button
                 onClick={() => { logout(); navigate('/login'); }}
@@ -304,39 +274,7 @@ const Profile = () => {
 
             {/* Edit Profile Tab */}
             {activeTab === 'edit' && (
-              <div className="bg-card rounded-2xl p-6 border border-border max-w-2xl">
-                <h3 className="text-lg font-bold mb-6">Personal Information</h3>
-                <div className="space-y-4">
-                  <div className="grid gap-2">
-                    <label className="text-sm font-medium">Username</label>
-                    <input
-                      type="text"
-                      value={profileData.username}
-                      onChange={(e) => setProfileData(prev => ({ ...prev, username: e.target.value }))}
-                      className="w-full bg-secondary/50 border border-border rounded-lg px-4 py-2.5 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <label className="text-sm font-medium">Bio</label>
-                    <textarea
-                      value={profileData.bio}
-                      onChange={(e) => setProfileData(prev => ({ ...prev, bio: e.target.value }))}
-                      rows={4}
-                      className="w-full bg-secondary/50 border border-border rounded-lg px-4 py-2.5 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none"
-                    />
-                  </div>
-                  <div className="pt-4">
-                    <button
-                      onClick={handleUpdateProfile}
-                      disabled={loading}
-                      className="flex items-center gap-2 px-6 py-2.5 bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 rounded-lg font-medium transition-colors"
-                    >
-                      <Save size={18} />
-                      {loading ? 'Saving Changes...' : 'Save Changes'}
-                    </button>
-                  </div>
-                </div>
-              </div>
+              <EditProfile onCancel={() => setActiveTab('overview')} />
             )}
 
             {/* Password Tab */}
