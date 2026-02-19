@@ -57,6 +57,7 @@ function SidebarProvider({
   // This is the internal state of the sidebar.
   // We use openProp and setOpenProp for control from outside the component.
   const [_open, _setOpen] = React.useState(defaultOpen)
+  const [sidebarWidth, setSidebarWidth] = React.useState(SIDEBAR_WIDTH)
   const open = openProp ?? _open
   const setOpen = React.useCallback((value) => {
     const openState = typeof value === "function" ? value(open) : value
@@ -103,7 +104,9 @@ function SidebarProvider({
     openMobile,
     setOpenMobile,
     toggleSidebar,
-  }), [state, open, setOpen, isMobile, openMobile, setOpenMobile, toggleSidebar])
+    sidebarWidth,
+    setSidebarWidth,
+  }), [state, open, setOpen, isMobile, openMobile, setOpenMobile, toggleSidebar, sidebarWidth, setSidebarWidth])
 
   return (
     <SidebarContext.Provider value={contextValue}>
@@ -112,7 +115,7 @@ function SidebarProvider({
           data-slot="sidebar-wrapper"
           style={
             {
-              "--sidebar-width": SIDEBAR_WIDTH,
+              "--sidebar-width": sidebarWidth,
               "--sidebar-width-icon": SIDEBAR_WIDTH_ICON,
               ...style
             }
@@ -199,14 +202,14 @@ function Sidebar({
       <div
         data-slot="sidebar-container"
         className={cn(
-          "fixed inset-y-0 z-10 hidden h-svh w-(--sidebar-width) transition-[left,right,width] duration-200 ease-linear md:flex",
+          "absolute inset-y-0 z-10 hidden h-full w-(--sidebar-width) transition-[left,right,width] duration-200 ease-linear md:flex",
           side === "left"
             ? "left-0 group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)]"
             : "right-0 group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)]",
           // Adjust the padding for floating and inset variants.
           variant === "floating" || variant === "inset"
             ? "p-2 group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4))+2px)]"
-            : "group-data-[collapsible=icon]:w-(--sidebar-width-icon) group-data-[side=left]:border-r group-data-[side=right]:border-l",
+            : "group-data-[collapsible=icon]:w-(--sidebar-width-icon) group-data-[side=right]:border-l",
           className
         )}
         {...props}>
@@ -250,19 +253,73 @@ function SidebarRail({
   className,
   ...props
 }) {
-  const { toggleSidebar } = useSidebar()
+  const { toggleSidebar, setSidebarWidth, sidebarWidth } = useSidebar()
+  const resizingRef = React.useRef(false)
+
+  const handleMouseDown = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    resizingRef.current = true
+    document.body.style.cursor = "col-resize"
+
+    const startX = e.clientX
+    // Better approach: Get the sidebar element and its width
+    // The rail is inside the sidebar-container, which is the actual sidebar element.
+    const sidebarContainer = e.currentTarget.parentElement
+    if (!sidebarContainer) return
+    const currentWidth = sidebarContainer.getBoundingClientRect().width
+
+    const handleMouseMove = (ev) => {
+      if (!resizingRef.current) return
+
+      // Calculate new width
+      const newWidth = currentWidth + (ev.clientX - startX)
+
+      // Auto-collapse threshold
+      if (newWidth < 100) {
+        setSidebarWidth(SIDEBAR_WIDTH) // Reset width so when it expands it's normal
+        setOpen(false) // Collapse
+        return
+      }
+
+      // If dragging out from collapsed state
+      if (!open && newWidth > 100) {
+        setOpen(true)
+      }
+
+      setSidebarWidth(`${newWidth}px`)
+    }
+
+    const handleMouseUp = () => {
+      resizingRef.current = false
+      document.body.style.cursor = ""
+      window.removeEventListener("mousemove", handleMouseMove)
+      window.removeEventListener("mouseup", handleMouseUp)
+    }
+
+    window.addEventListener("mousemove", handleMouseMove)
+    window.addEventListener("mouseup", handleMouseUp)
+  }
 
   return (
     <button
-      data-sidebar="rail"
       data-slot="sidebar-rail"
+      data-sidebar="rail"
       aria-label="Toggle Sidebar"
       tabIndex={-1}
-      onClick={toggleSidebar}
-      title="Toggle Sidebar"
+      onMouseDown={handleMouseDown}
+      onClick={(e) => {
+        // If we didn't drag much, interpret as click/toggle
+        // But implementing that logic is complex here.
+        // Let's keep toggle for double click or just use the button if they want to close.
+        // The visual design of shadcn sidebar typically implies click to toggle OR drag.
+        // Let's prioritize resize as requested. We can add doubleClick to toggle.
+      }}
+      onDoubleClick={toggleSidebar}
+      title="Drag to resize, Double click to toggle"
       className={cn(
         "hover:after:bg-sidebar-border absolute inset-y-0 z-20 hidden w-4 -translate-x-1/2 transition-all ease-linear group-data-[side=left]:-right-4 group-data-[side=right]:left-0 after:absolute after:inset-y-0 after:left-1/2 after:w-[2px] sm:flex",
-        "in-data-[side=left]:cursor-w-resize in-data-[side=right]:cursor-e-resize",
+        "in-data-[side=left]:cursor-col-resize in-data-[side=right]:cursor-col-resize", // Changed cursor
         "[[data-side=left][data-state=collapsed]_&]:cursor-e-resize [[data-side=right][data-state=collapsed]_&]:cursor-w-resize",
         "hover:group-data-[collapsible=offcanvas]:bg-sidebar group-data-[collapsible=offcanvas]:translate-x-0 group-data-[collapsible=offcanvas]:after:left-full",
         "[[data-side=left][data-collapsible=offcanvas]_&]:-right-2",
@@ -538,7 +595,7 @@ function SidebarMenuAction({
         "peer-data-[size=lg]/menu-button:top-2.5",
         "group-data-[collapsible=icon]:hidden",
         showOnHover &&
-          "peer-data-[active=true]/menu-button:text-sidebar-accent-foreground group-focus-within/menu-item:opacity-100 group-hover/menu-item:opacity-100 data-[state=open]:opacity-100 md:opacity-0",
+        "peer-data-[active=true]/menu-button:text-sidebar-accent-foreground group-focus-within/menu-item:opacity-100 group-hover/menu-item:opacity-100 data-[state=open]:opacity-100 md:opacity-0",
         className
       )}
       {...props} />
