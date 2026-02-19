@@ -89,7 +89,7 @@ const ChallengeNotification = () => {
             <div className="bg-[#0a0a0f] border border-sky-500/20 shadow-[0_0_30px_rgba(14,165,233,0.2)] rounded-2xl p-4 w-80 relative overflow-hidden backdrop-blur-xl">
                 {/* Animated Background Pulse */}
                 <div className="absolute inset-0 bg-sky-500/5 animate-pulse"></div>
-                <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-sky-400 to-violet-500"></div>
+                <div className="absolute top-0 left-0 w-1 h-full bg-linear-to-b from-sky-400 to-violet-500"></div>
 
                 <div className="relative z-10">
                     <div className="flex items-start justify-between mb-3">
@@ -106,7 +106,7 @@ const ChallengeNotification = () => {
                     </div>
 
                     <div className="flex items-center gap-4 mb-4">
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-sky-500 to-violet-600 p-[2px]">
+                        <div className="w-12 h-12 rounded-full bg-linear-to-br from-sky-500 to-violet-600 p-[2px]">
                             <div className="w-full h-full rounded-full bg-[#121218] flex items-center justify-center">
                                 {challenger.avatar ? (
                                     <img src={challenger.avatar} alt="Avatar" className="w-full h-full rounded-full object-cover" />

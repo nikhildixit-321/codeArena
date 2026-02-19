@@ -136,31 +136,66 @@ router.get('/health', async (req, res) => {
   }
 });
 
-// Submit Practice Code (Awards Points only, no Ranking change)
-router.post('/submit-practice', async (req, res) => {
+// Submit Practice Code (Awards Points and Updates Streak)
+router.post('/submit-practice', require('../middleware/auth'), async (req, res) => {
   try {
-    const { userId, questionId, passed } = req.body;
+    const { questionId, passed } = req.body;
+    // req.user is set by the middleware
+    const userId = req.user.id || req.user._id;
 
-    // Simple point reward logic
-    if (passed) {
-      // Find user and increment points
-      // Assuming we have User model access via req or import
-      // Since this file doesn't import User, we might need to move this or import it.
-      // Let's assume User is imported or passed via middleware usually, but here:
-      // We'll return success and handle DB update if we import User.
-
-      // Actually, this route file doesn't import User. Import it first.
-      const user = await User.findById(userId);
-      if (user) {
-        user.points += 5; // +5 points per practice solve
-        await user.save();
-        return res.json({ message: 'Points awarded!', points: user.points });
-      }
+    if (!passed) {
+      return res.json({ message: 'Keep trying!' });
     }
 
-    res.json({ message: 'Submission recorded.' });
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Award Points
+    user.points += 5;
+
+    // --- Daily Streak Logic (Consolidated) ---
+    // Updates streak if not already updated today, and handles streak resets.
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    let lastActive = user.streak?.lastActive ? new Date(user.streak.lastActive) : null;
+    if (lastActive) lastActive.setHours(0, 0, 0, 0);
+
+    // Only update streak if not already updated today
+    if (!lastActive || lastActive.getTime() < today.getTime()) {
+      if (lastActive) {
+        const diffTime = Math.abs(today - lastActive);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        if (diffDays === 1) {
+          // Continued streak
+          user.streak.current += 1;
+          user.points += 10; // Bonus for streak continuation
+        } else if (diffDays > 1) {
+          // Broken streak
+          user.streak.current = 1;
+        }
+      } else {
+        // First time ever
+        user.streak = { current: 1, lastActive: new Date() };
+        user.points += 5; // First time bonus
+      }
+      // Update last active to today
+      user.streak.lastActive = new Date();
+    }
+
+    await user.save();
+
+    res.json({
+      message: 'Practice problem solved! Points awarded.',
+      points: user.points,
+      streak: user.streak.current
+    });
 
   } catch (err) {
+    console.error("Practice submission error:", err);
     res.status(500).json({ message: err.message });
   }
 });

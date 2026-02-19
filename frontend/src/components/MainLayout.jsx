@@ -41,7 +41,15 @@ const MainLayout = ({ children, navbar }) => {
                             <SidebarTrigger />
                         </div>
 
+
                         {children}
+
+                        {/* Global Footer */}
+                        <footer className="py-6 text-center border-t border-white/5 mt-auto">
+                            <p className="text-xs text-gray-500 font-mono">
+                                © {new Date().getFullYear()} CodeArena. All Rights Reserved.
+                            </p>
+                        </footer>
                     </main>
                 </div>
             </div>

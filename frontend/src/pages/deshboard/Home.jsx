@@ -22,40 +22,43 @@ const DashboardContent = () => {
   const [liveMatches, setLiveMatches] = useState([]);
   const [loadingMatches, setLoadingMatches] = useState(true);
 
+  const [dailyChallenge, setDailyChallenge] = useState(null);
+  const [leaderboard, setLeaderboard] = useState([]);
+
   useEffect(() => {
-    // API integration here
+    // 1. Update Stats from User Context
     if (user) {
       setStats({
-        rating: user.rating || 1200,
+        rating: user.rating || 600,
         matchesPlayed: user.matchesPlayed || 0,
         matchesWon: user.matchesWon || 0,
-        streak: user.streak?.current || 0
-      })
+        streak: user.streak?.current || 0,
+        points: user.points || 0
+      });
     }
 
-    // Fetch Live Matches
-    const fetchLiveMatches = async () => {
+    const fetchData = async () => {
       try {
-        // We need to import api first, but it's not imported in this file snippet.
-        // Let's assume we can add import, or use fetch. 
-        // Better: Add import at top via separate replace if needed, or assume global api (unlikely).
-        // Actually, I can use the existing `api` instance if I import it.
-        // I will add the import in a separate block or assume it exists. 
-        // Wait, looking at file... `api` is NOT imported. `useAuth` is. 
-        // I'll add `import api from '../../api/axios';` at the top.
+        // 2. Fetch Active Matches
+        const liveRes = await api.get('/match/active');
+        setLiveMatches(liveRes.data);
 
-        // For now, let's use a dynamic import or fix imports in step 1.
-        // I'll proceed assuming I fix imports.
+        // 3. Fetch Daily Challenge
+        const dailyRes = await api.get('/match/daily');
+        setDailyChallenge(dailyRes.data);
 
-        const res = await api.get('/match/active');
-        setLiveMatches(res.data);
+        // 4. Fetch Leaderboard
+        const lbRes = await api.get('/match/leaderboard');
+        setLeaderboard(lbRes.data);
+
       } catch (err) {
-        console.error(err);
+        console.error("Dashboard fetch error:", err);
       } finally {
         setLoadingMatches(false);
       }
     };
-    fetchLiveMatches(); // I'll implement proper fetch with api import below.
+
+    fetchData();
   }, [user]);
 
   return (
@@ -106,15 +109,15 @@ const DashboardContent = () => {
               icon={Trophy}
               color="text-sky-400"
               bg="bg-sky-400/10"
-              trend="Top 5%"
+              trend="Total Wins"
             />
             <StatsCard
-              label="Win Rate"
-              value={`${stats.matchesPlayed > 0 ? Math.round((stats.matchesWon / stats.matchesPlayed) * 100) : 0}%`}
-              icon={Activity}
-              color="text-emerald-400"
-              bg="bg-emerald-400/10"
-              trend="+2% vs avg"
+              label="Battle Points"
+              value={stats.points || 0}
+              icon={Star}
+              color="text-yellow-400"
+              bg="bg-yellow-400/10"
+              trend="Experience"
             />
             <StatsCard
               label="Daily Streak"
@@ -129,7 +132,7 @@ const DashboardContent = () => {
           {/* 3. HERO SECTION (Ranked Matchmaking) */}
           <div className="relative rounded-3xl overflow-hidden min-h-[300px] flex items-center group border border-white/5 bg-[#0a0a0f]">
             {/* Background Art */}
-            <div className="absolute inset-0 bg-gradient-to-r from-indigo-900/40 via-[#0a0a0f] to-[#0a0a0f] z-0"></div>
+            <div className="absolute inset-0 bg-linear-to-r from-indigo-900/40 via-[#0a0a0f] to-[#0a0a0f] z-0"></div>
             <div className="absolute right-0 top-0 h-full w-1/2 bg-[url('https://images.unsplash.com/photo-1550751827-4bd374c3f58b?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center opacity-20 mix-blend-overlay mask-image-gradient"></div>
 
             <div className="relative z-10 p-8 md:p-12 max-w-2xl">
@@ -138,7 +141,7 @@ const DashboardContent = () => {
               </div>
               <h2 className="text-4xl md:text-5xl font-black text-white mb-4 leading-tight">
                 RANKED <br />
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-indigo-400">MATCHMAKING</span>
+                <span className="text-transparent bg-clip-text bg-linear-to-r from-sky-400 to-indigo-400">MATCHMAKING</span>
               </h2>
               <p className="text-gray-400 text-lg mb-8 max-w-lg">
                 Compete against developers worldwide in real-time 1v1 battles. Climb the leaderboard and earn exclusive badges.
@@ -235,14 +238,28 @@ const DashboardContent = () => {
                   <Target size={80} />
                 </div>
                 <h3 className="text-lg font-bold text-white mb-2 relative z-10">Daily Challenge</h3>
-                <div className="flex items-center gap-2 mb-4 relative z-10">
-                  <span className="px-2 py-0.5 bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 text-[10px] font-bold uppercase rounded">Hard</span>
-                  <span className="text-xs text-gray-400">DP on Trees</span>
-                </div>
-                <p className="text-sm text-gray-400 mb-6 relative z-10">Solve today's problem to keep your 12-day streak alive.</p>
-                <button className="w-full py-3 bg-white text-black font-bold text-sm rounded-xl hover:bg-gray-200 transition-colors relative z-10">
-                  Start Challenge
-                </button>
+                {dailyChallenge ? (
+                  <>
+                    <div className="flex items-center gap-2 mb-4 relative z-10">
+                      <span className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded border ${dailyChallenge.question?.difficulty === 'Hard' ? 'bg-red-500/10 text-red-500 border-red-500/20' :
+                        dailyChallenge.question?.difficulty === 'Medium' ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' :
+                          'bg-green-500/10 text-green-500 border-green-500/20'
+                        }`}>
+                        {dailyChallenge.question?.difficulty || 'Medium'}
+                      </span>
+                      <span className="text-xs text-gray-400 truncate max-w-[150px]">{dailyChallenge.question?.title}</span>
+                    </div>
+                    <p className="text-sm text-gray-400 mb-6 relative z-10">Solve today's problem to increase streak.</p>
+                    <button
+                      onClick={() => navigate('/practice')} // Or specific daily route
+                      className="w-full py-3 bg-white text-black font-bold text-sm rounded-xl hover:bg-gray-200 transition-colors relative z-10"
+                    >
+                      Start Challenge
+                    </button>
+                  </>
+                ) : (
+                  <div className="text-gray-500 text-sm">Loading challenge...</div>
+                )}
               </div>
 
               {/* Top Players */}
@@ -251,23 +268,30 @@ const DashboardContent = () => {
                   <Trophy size={16} className="text-yellow-500" /> Leaderboard
                 </h3>
                 <div className="space-y-4">
-                  {[1, 2, 3, 4, 5].map((rank) => (
-                    <div key={rank} className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <span className={`w-5 h-5 flex items-center justify-center text-xs font-bold rounded ${rank === 1 ? 'bg-yellow-500/20 text-yellow-500' : 'text-gray-500 bg-white/5'}`}>
-                          {rank}
-                        </span>
-                        <span className="text-sm font-medium text-gray-300">Player_{rank}</span>
+                  {leaderboard.length > 0 ? (
+                    leaderboard.slice(0, 5).map((player, index) => (
+                      <div key={player._id || index} className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <span className={`w-5 h-5 flex items-center justify-center text-xs font-bold rounded ${index === 0 ? 'bg-yellow-500/20 text-yellow-500' : 'text-gray-500 bg-white/5'}`}>
+                            {index + 1}
+                          </span>
+                          <span className="text-sm font-medium text-gray-300">{player.username}</span>
+                        </div>
+                        <span className="text-xs font-mono text-gray-500">{player.rating}</span>
                       </div>
-                      <span className="text-xs font-mono text-gray-500">2{900 - rank * 45}</span>
-                    </div>
-                  ))}
+                    ))
+                  ) : (
+                    <div className="text-gray-500 text-xs">No ranking data yet.</div>
+                  )}
                 </div>
-                <button className="w-full mt-4 py-2 text-xs font-bold text-gray-500 hover:text-white transition-colors border-t border-white/5 pt-4">
+                <button
+                  onClick={() => navigate('/leaderboard')}
+                  className="w-full mt-4 py-2 text-xs font-bold text-gray-500 hover:text-white transition-colors border-t border-white/5 pt-4"
+                >
                   View Full Rankings
                 </button>
-              </div>
 
+              </div>
             </div>
           </div>
         </div>
@@ -293,7 +317,7 @@ const StatsCard = ({ label, value, icon: Icon, color, bg, trend }) => (
 const ActionCard = ({ title, desc, icon: Icon, color, onClick }) => (
   <button
     onClick={onClick}
-    className="text-left bg-[#0e0e12] border border-white/5 p-5 rounded-2xl hover:bg-white/[0.02] hover:border-sky-500/30 transition-all group relative overflow-hidden"
+    className="text-left bg-[#0e0e12] border border-white/5 p-5 rounded-2xl hover:bg-white/2 hover:border-sky-500/30 transition-all group relative overflow-hidden"
   >
     <div className={`w-10 h-10 ${color} rounded-lg flex items-center justify-center mb-4 text-white shadow-lg`}>
       <Icon size={20} />

@@ -70,10 +70,12 @@ exports.submitMatchResult = async (req, res) => {
         winner.rating = newWinnerRating;
         winner.matchesWon += 1;
         winner.matchesPlayed += 1;
+        winner.points += 50; // Bonus points for winning a battle
         await winner.save();
 
         loser.rating = newLoserRating;
         loser.matchesPlayed += 1;
+        loser.points += 10; // Participation points
         await loser.save();
 
         // Update Match Record
