@@ -8,7 +8,7 @@ import api from '../../api/axios';
 import {
   User, Mail, Lock, Trophy, History, Edit2, Camera,
   Save, X, ChevronLeft, Gamepad2, Target, Flame,
-  Medal, Clock, CheckCircle, Award
+  Medal, Clock, CheckCircle, Award, LogOut
 } from 'lucide-react';
 
 // Stat Card Component
@@ -33,7 +33,7 @@ const StatCard = ({ icon: Icon, label, value, color }) => {
 };
 
 const Profile = () => {
-  const { user, checkUser } = useAuth();
+  const { user, checkUser, logout } = useAuth();
   // ... (keep state logic same as before, simplified for brevity in this view, but fully implemented in file)
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
@@ -223,14 +223,21 @@ const Profile = () => {
                 <Edit2 size={16} />
                 {isEditing ? 'Cancel Edit' : 'Edit Profile'}
               </button>
+              <button
+                onClick={() => { logout(); navigate('/login'); }}
+                className="flex items-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-lg transition-colors font-medium text-sm border border-red-500/20"
+              >
+                <LogOut size={16} />
+                Log Out
+              </button>
             </div>
           </div>
 
           {/* Message Alert */}
           {message && (
             <div className={`mb-6 p-4 rounded-xl border flex items-center gap-3 ${message.includes('success')
-                ? 'bg-green-500/10 text-green-500 border-green-500/20'
-                : 'bg-destructive/10 text-destructive border-destructive/20'
+              ? 'bg-green-500/10 text-green-500 border-green-500/20'
+              : 'bg-destructive/10 text-destructive border-destructive/20'
               }`}>
               {message.includes('success') ? <CheckCircle size={20} /> : <X size={20} />}
               {message}
@@ -249,8 +256,8 @@ const Profile = () => {
                 key={tab.id}
                 onClick={() => { setActiveTab(tab.id); setMessage(''); }}
                 className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-medium text-sm transition-all whitespace-nowrap ${activeTab === tab.id
-                    ? 'bg-primary text-primary-foreground shadow-md'
-                    : 'bg-card text-muted-foreground hover:bg-secondary hover:text-foreground border border-transparent'
+                  ? 'bg-primary text-primary-foreground shadow-md'
+                  : 'bg-card text-muted-foreground hover:bg-secondary hover:text-foreground border border-transparent'
                   }`}
               >
                 <tab.icon size={16} />
@@ -399,8 +406,8 @@ const Profile = () => {
                         <tr key={game.id} className="hover:bg-secondary/20 transition-colors">
                           <td className="px-6 py-4">
                             <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md font-bold text-xs capitalize ${game.result === 'win'
-                                ? 'bg-green-500/10 text-green-500 border border-green-500/20'
-                                : 'bg-destructive/10 text-destructive border border-destructive/20'
+                              ? 'bg-green-500/10 text-green-500 border border-green-500/20'
+                              : 'bg-destructive/10 text-destructive border border-destructive/20'
                               }`}>
                               {game.result === 'win' ? <Trophy size={12} /> : <X size={12} />}
                               {game.result}
