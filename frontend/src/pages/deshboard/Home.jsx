@@ -70,7 +70,7 @@ const DashboardContent = () => {
       </div>
 
       <div className="flex-1 p-6 md:p-8 overflow-y-auto custom-scrollbar relative z-10">
-        <div className="max-w-7xl mx-auto space-y-8">
+        <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
 
           {/* 1. WELCOME HEADER */}
           <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
