@@ -1,9 +1,10 @@
 import React from "react"
 import {
     Home, Swords, Terminal, User, Settings,
-    Trophy, Target, Zap
+    Trophy, Target, Zap, LogOut
 } from "lucide-react"
-import { useLocation, Link } from "react-router-dom"
+import { useLocation, Link, useNavigate } from "react-router-dom"
+import { useAuth } from "../context/AuthContext"
 import {
     Sidebar,
     SidebarContent,
@@ -81,6 +82,13 @@ const groups = [
 
 export function AppSidebar() {
     const location = useLocation()
+    const navigate = useNavigate()
+    const { logout } = useAuth()
+
+    const handleLogout = () => {
+        logout();
+        navigate('/login');
+    }
 
     return (
         <Sidebar collapsible="icon" className="border-r border-white/10 bg-[#09090b] text-gray-400 font-sans">
@@ -171,6 +179,18 @@ export function AppSidebar() {
                                 <Settings size={20} />
                                 <span className="font-medium">Settings</span>
                             </Link>
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                    <SidebarMenuItem>
+                        <SidebarMenuButton
+                            onClick={handleLogout}
+                            tooltip="Log Out"
+                            className="h-10 text-red-500 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-colors"
+                        >
+                            <div className="flex items-center gap-3">
+                                <LogOut size={20} />
+                                <span className="font-medium">Log Out</span>
+                            </div>
                         </SidebarMenuButton>
                     </SidebarMenuItem>
                 </SidebarMenu>
