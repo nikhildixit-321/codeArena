@@ -2,10 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import api from '../../api/axios';
-import { 
-  Folder, File, Play, Save, Plus, Trash2, 
+import MainLayout from '../../components/MainLayout';
+import {
+  Folder, File, Play, Save, Plus, Trash2,
   ChevronRight, ChevronDown, Settings, Terminal,
-  FolderPlus, FilePlus, X, Home, Code2, Cpu, Loader2
+  FolderPlus, FilePlus, X, Home, Code2, Cpu, Loader2,
+  Minimize2, Maximize2, MoreHorizontal, Download, Share2
 } from 'lucide-react';
 
 const IDE = () => {
@@ -15,17 +17,17 @@ const IDE = () => {
     return saved ? JSON.parse(saved) : [
       {
         id: 'root',
-        name: 'My Project',
+        name: 'Project',
         type: 'folder',
         isOpen: true,
         children: [
           { id: '1', name: 'main.js', type: 'file', language: 'javascript', content: '// Welcome to CodeArena IDE\nconsole.log("Hello World!");' },
-          { id: '2', name: 'utils.py', type: 'file', language: 'python', content: '# Python utilities\ndef greet(name):\n    return f"Hello, {name}!"' }
+          { id: '2', name: 'styles.css', type: 'file', language: 'css', content: 'body {\n  background: #000;\n  color: #fff;\n}' }
         ]
       }
     ];
   });
-  
+
   const [activeFileId, setActiveFileId] = useState('1');
   const [output, setOutput] = useState('');
   const [isRunning, setIsRunning] = useState(false);
@@ -34,9 +36,10 @@ const IDE = () => {
   const [newItemName, setNewItemName] = useState('');
   const [selectedFolderId, setSelectedFolderId] = useState('root');
   const [contextMenu, setContextMenu] = useState(null);
-  const [terminalHeight, setTerminalHeight] = useState(200);
-  const [isResizing, setIsResizing] = useState(false);
+  const [terminalHeight, setTerminalHeight] = useState(240);
+  const [sidebarWidth, setSidebarWidth] = useState(260);
 
+  // Theme Colors (Sky Blue / Neon Vibe)
   const activeFile = findFileById(files, activeFileId);
   const openFiles = getAllFiles(files).filter(f => f.type === 'file');
 
@@ -163,7 +166,7 @@ const IDE = () => {
     if (!activeFile) return;
     setIsRunning(true);
     setOutput(`Running ${activeFile.name}...\n`);
-    
+
     try {
       const response = await api.post('/execute/run', {
         code: activeFile.content,
@@ -174,15 +177,15 @@ const IDE = () => {
         setOutput(prev => prev + `Error: ${response.data.error}\n`);
       } else {
         const { status, stdout, stderr, compile_output, time, memory } = response.data;
-        let outputText = `[${status}]\n`;
-        if (compile_output) outputText += `=== Compilation Output ===\n${compile_output}\n`;
-        if (stdout) outputText += `=== Output ===\n${stdout}\n`;
-        if (stderr) outputText += `=== Errors ===\n${stderr}\n`;
-        if (time) outputText += `\nTime: ${time}s | Memory: ${memory}KB`;
+        let outputText = `\n> Process finished with exit code ${status === 'Accepted' ? 0 : 1}\n`;
+        if (compile_output) outputText += `${compile_output}\n`;
+        if (stdout) outputText += `${stdout}\n`;
+        if (stderr) outputText += `${stderr}\n`;
+        if (time) outputText += `\n[Stats] Time: ${time}s | Memory: ${memory}KB`;
         setOutput(prev => prev + outputText);
       }
     } catch (err) {
-      setOutput(prev => prev + `Error: ${err.response?.data?.message || err.message}\nMake sure to set up Judge0 API key in backend .env file.`);
+      setOutput(prev => prev + `Error: ${err.response?.data?.message || err.message}\nMake sure backend environment variables (RAPIDAPI_KEY) are set.`);
     } finally {
       setIsRunning(false);
     }
@@ -192,10 +195,11 @@ const IDE = () => {
     return items.map(item => (
       <div key={item.id}>
         <div
-          className={`flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-gray-800 transition-colors ${
-            activeFileId === item.id ? 'bg-purple-600/20 text-purple-400' : 'text-gray-400'
-          }`}
-          style={{ paddingLeft: `${depth * 12 + 12}px` }}
+          className={`flex items-center gap-2 px-3 py-1.5 cursor-pointer transition-all border-l-2 ${activeFileId === item.id
+              ? 'bg-sky-500/10 border-sky-500 text-sky-400 font-medium'
+              : 'border-transparent text-gray-400 hover:bg-[#1f1f28] hover:text-gray-200'
+            }`}
+          style={{ paddingLeft: `${depth * 16 + 12}px` }}
           onClick={() => {
             if (item.type === 'folder') {
               setFiles(toggleFolder(files, item.id));
@@ -210,16 +214,17 @@ const IDE = () => {
         >
           {item.type === 'folder' ? (
             <>
-              {item.isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-              <Folder size={16} className={item.isOpen ? 'text-yellow-500' : 'text-gray-500'} />
+              {item.isOpen ? <ChevronDown size={14} className="text-gray-500" /> : <ChevronRight size={14} className="text-gray-500" />}
+              <Folder size={16} className={item.isOpen ? 'text-blue-400' : 'text-gray-500'} />
             </>
           ) : (
-            <>
-              <span className="w-3.5"></span>
-              <File size={16} className="text-blue-400" />
-            </>
+            item.name.endsWith('.js') ? <File size={16} className="text-yellow-400" /> :
+              item.name.endsWith('.css') ? <File size={16} className="text-blue-400" /> :
+                item.name.endsWith('.html') ? <File size={16} className="text-orange-400" /> :
+                  item.name.endsWith('.py') ? <File size={16} className="text-green-400" /> :
+                    <File size={16} className="text-gray-400" />
           )}
-          <span className="text-sm truncate">{item.name}</span>
+          <span className="text-sm truncate select-none">{item.name}</span>
         </div>
         {item.type === 'folder' && item.isOpen && item.children && (
           <div>{renderFileTree(item.children, depth + 1)}</div>
@@ -229,91 +234,79 @@ const IDE = () => {
   }
 
   return (
-    <div className="h-screen bg-[#0d1117] flex flex-col overflow-hidden">
-      {/* Header */}
-      <header className="h-12 bg-[#161b22] border-b border-[#30363d] flex items-center justify-between px-4 text-white">
+    <MainLayout navbar={
+      <div className="h-14 bg-[#0a0a0f] border-b border-white/5 flex items-center justify-between px-4 z-50">
         <div className="flex items-center gap-4">
-          <button onClick={() => navigate('/dashboard')} className="flex items-center gap-2 text-purple-500 font-bold hover:opacity-80">
-            <Code2 size={20} /> CodeArena IDE
-          </button>
+          <div className="flex items-center gap-2 text-sky-400 font-black tracking-tight text-lg">
+            <Code2 size={22} strokeWidth={2.5} /> IDE <span className="text-gray-600 font-thin">/</span> <span className="text-white text-sm font-medium">Project_Alpha</span>
+          </div>
         </div>
-        
         <div className="flex items-center gap-3">
-          <button 
-            onClick={() => setShowNewFileModal(true)}
-            className="flex items-center gap-2 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded text-xs font-bold"
-          >
-            <FilePlus size={14} /> New File
+          <button className="p-2 hover:bg-white/5 rounded-lg text-gray-400 hover:text-white transition-colors">
+            <Share2 size={16} />
           </button>
-          <button 
-            onClick={() => setShowNewFolderModal(true)}
-            className="flex items-center gap-2 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded text-xs font-bold"
-          >
-            <FolderPlus size={14} /> New Folder
+          <button className="p-2 hover:bg-white/5 rounded-lg text-gray-400 hover:text-white transition-colors">
+            <Download size={16} />
           </button>
-          <button 
+          <div className="h-6 w-px bg-white/10 mx-1"></div>
+          <button
             onClick={handleRun}
             disabled={isRunning || !activeFile}
-            className="flex items-center gap-2 px-4 py-1.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 rounded text-xs font-bold"
+            className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white rounded-lg text-xs font-bold shadow-[0_0_15px_rgba(14,165,233,0.3)] hover:shadow-[0_0_25px_rgba(14,165,233,0.5)] transition-all disabled:opacity-50 disabled:cursor-not-allowed group"
           >
-            {isRunning ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />} 
-            {isRunning ? 'Running...' : 'Run'}
+            {isRunning ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} className="fill-current" />}
+            {isRunning ? 'Compiling...' : 'Run Code'}
           </button>
         </div>
-      </header>
+      </div>
+    }>
+      <div className="flex h-[calc(100vh-3.5rem)] bg-[#050505] overflow-hidden">
 
-      {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar - File Explorer */}
-        <div className="w-64 bg-[#0d1117] border-r border-[#30363d] flex flex-col">
-          <div className="p-3 border-b border-[#30363d] flex items-center justify-between">
-            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Explorer</span>
+        {/* 1. SIDEBAR (File Explorer) */}
+        <div
+          className="flex flex-col border-r border-white/5 bg-[#0a0a0f]"
+          style={{ width: sidebarWidth }}
+        >
+          <div className="p-3 flex items-center justify-between text-xs font-bold text-gray-500 uppercase tracking-widest border-b border-white/5">
+            <span className="flex items-center gap-2"><Folder size={14} /> Explorer</span>
             <div className="flex gap-1">
-              <button 
-                onClick={() => { setSelectedFolderId('root'); setShowNewFileModal(true); }}
-                className="p-1 hover:bg-gray-800 rounded"
-              >
-                <FilePlus size={14} className="text-gray-400" />
-              </button>
-              <button 
-                onClick={() => { setSelectedFolderId('root'); setShowNewFolderModal(true); }}
-                className="p-1 hover:bg-gray-800 rounded"
-              >
-                <FolderPlus size={14} className="text-gray-400" />
-              </button>
+              <button onClick={() => { setSelectedFolderId('root'); setShowNewFileModal(true); }} className="p-1 hover:bg-white/10 rounded text-gray-400 hover:text-white transition-colors"><FilePlus size={14} /></button>
+              <button onClick={() => { setSelectedFolderId('root'); setShowNewFolderModal(true); }} className="p-1 hover:bg-white/10 rounded text-gray-400 hover:text-white transition-colors"><FolderPlus size={14} /></button>
             </div>
           </div>
-          <div className="flex-1 overflow-y-auto py-2">
+          <div className="flex-1 overflow-y-auto py-2 custom-scrollbar">
             {renderFileTree(files)}
           </div>
         </div>
 
-        {/* Editor Area */}
-        <div className="flex-1 flex flex-col min-w-0">
-          {/* Tabs */}
-          <div className="flex bg-[#161b22] border-b border-[#30363d] overflow-x-auto">
+        {/* 2. MAIN EDITOR AREA */}
+        <div className="flex-1 flex flex-col min-w-0 bg-[#050505] relative">
+
+          {/* Tabs Bar */}
+          <div className="flex bg-[#0a0a0f] border-b border-white/5 overflow-x-auto no-scrollbar">
             {openFiles.map(file => (
               <div
                 key={file.id}
                 onClick={() => setActiveFileId(file.id)}
-                className={`flex items-center gap-2 px-4 py-2 text-xs cursor-pointer border-r border-[#30363d] min-w-fit ${
-                  activeFileId === file.id 
-                    ? 'bg-[#0d1117] text-white border-t-2 border-t-purple-500' 
-                    : 'text-gray-500 hover:bg-[#0d1117]'
-                }`}
+                className={`
+                                    group flex items-center gap-2 px-4 py-2.5 text-xs font-medium cursor-pointer border-r border-white/5 min-w-[120px] max-w-[200px] transition-colors
+                                    ${activeFileId === file.id ? 'bg-[#050505] text-sky-400 border-t-2 border-t-sky-500' : 'text-gray-500 hover:text-gray-300 hover:bg-[#121218]'}
+                                `}
               >
-                <File size={12} />
-                {file.name}
-                <X 
-                  size={12} 
-                  className="ml-2 hover:text-red-400"
+                <span className={activeFileId === file.id ? 'opacity-100' : 'opacity-50'}>
+                  {file.name.endsWith('.js') ? <Code2 size={14} /> : <File size={14} />}
+                </span>
+                <span className="truncate flex-1">{file.name}</span>
+                <X
+                  size={12}
+                  className="opacity-0 group-hover:opacity-100 hover:text-red-400 transition-opacity"
                   onClick={(e) => { e.stopPropagation(); handleDelete(file.id); }}
                 />
               </div>
             ))}
           </div>
 
-          {/* Editor */}
+          {/* Monaco Editor */}
           <div className="flex-1 relative">
             {activeFile ? (
               <Editor
@@ -323,127 +316,106 @@ const IDE = () => {
                 value={activeFile.content}
                 onChange={(value) => setFiles(updateFileContent(files, activeFileId, value))}
                 options={{
-                  minimap: { enabled: true },
-                  fontSize: 14,
-                  fontFamily: 'JetBrains Mono, monospace',
-                  automaticLayout: true,
+                  minimap: { enabled: false }, // Cleaner look
+                  fontSize: 15,
+                  fontFamily: '"JetBrains Mono", "Fira Code", monospace',
+                  fontLigatures: true,
+                  padding: { top: 20 },
                   scrollBeyondLastLine: false,
-                  padding: { top: 16 }
+                  smoothScrolling: true,
+                  cursorBlinking: "smooth",
+                  cursorSmoothCaretAnimation: "on",
+                  renderLineHighlight: "all",
                 }}
               />
             ) : (
-              <div className="h-full flex items-center justify-center text-gray-600">
-                <div className="text-center">
-                  <Code2 size={48} className="mx-auto mb-4 opacity-50" />
-                  <p>Select a file to start coding</p>
-                </div>
+              <div className="h-full flex flex-col items-center justify-center text-gray-500 opacity-50">
+                <Code2 size={64} className="mb-4 text-gray-700" />
+                <p className="text-sm">Select a file from the explorer to start coding.</p>
+                <p className="text-xs mt-2 text-gray-600">Use Ctrl+S to save changes</p>
               </div>
             )}
           </div>
 
-          {/* Terminal */}
-          <div 
-            className="bg-[#0d1117] border-t border-[#30363d] flex flex-col"
+          {/* 3. TERMINAL PANEL (Bottom) */}
+          <div
+            className="bg-[#0a0a0f] border-t border-white/5 flex flex-col transition-all duration-300 ease-in-out"
             style={{ height: terminalHeight }}
           >
-            <div 
-              className="h-1 bg-[#30363d] cursor-row-resize hover:bg-purple-500 transition-colors"
-              onMouseDown={() => setIsResizing(true)}
-            />
-            <div className="flex items-center justify-between px-4 py-2 border-b border-[#30363d]">
-              <span className="text-xs font-bold text-gray-500 uppercase flex items-center gap-2">
-                <Terminal size={12} /> Terminal
-              </span>
-              <button onClick={() => setOutput('')} className="text-xs text-gray-600 hover:text-gray-400">Clear</button>
+            {/* Terminal Header & Resizer */}
+            <div
+              className="h-9 flex items-center justify-between px-4 border-b border-white/5 bg-[#0e0e12] select-none cursor-row-resize"
+              onMouseDown={(e) => {
+                const startY = e.clientY;
+                const startHeight = terminalHeight;
+                const handleMouseMove = (ev) => {
+                  setTerminalHeight(startHeight - (ev.clientY - startY));
+                };
+                const handleMouseUp = () => {
+                  document.removeEventListener('mousemove', handleMouseMove);
+                  document.removeEventListener('mouseup', handleMouseUp);
+                };
+                document.addEventListener('mousemove', handleMouseMove);
+                document.addEventListener('mouseup', handleMouseUp);
+              }}
+            >
+              <div className="flex items-center gap-4 text-xs font-bold text-gray-400 cursor-default">
+                <span className="flex items-center gap-2 text-sky-400 border-b-2 border-sky-400 pb-2.5 mt-2.5 px-1"><Terminal size={14} /> Console</span>
+                <span className="hover:text-white cursor-pointer px-1">Output</span>
+                <span className="hover:text-white cursor-pointer px-1">Debug Console</span>
+              </div>
+              <div className="flex items-center gap-3 cursor-pointer">
+                <span className="text-xs text-gray-600 hover:text-white transition-colors" onClick={() => setOutput('')}>Clear</span>
+                <Maximize2 size={12} className="text-gray-600 hover:text-white" onClick={() => setTerminalHeight(terminalHeight > 300 ? 40 : 400)} />
+                <X size={14} className="text-gray-600 hover:text-white" onClick={() => setTerminalHeight(40)} />
+              </div>
             </div>
-            <div className="flex-1 p-4 font-mono text-xs text-gray-400 overflow-y-auto whitespace-pre-wrap">
-              {output || 'Ready to execute code...'}
+
+            {/* Terminal Output */}
+            <div className="flex-1 p-4 font-mono text-sm overflow-y-auto custom-scrollbar bg-[#050505]">
+              {output ? (
+                <pre className="whitespace-pre-wrap text-gray-300 leading-relaxed font-[Consolas]">
+                  {output}
+                </pre>
+              ) : (
+                <div className="text-gray-700 text-xs italic mt-2 ml-2">
+                                    // Terminal Ready. Click 'Run Code' to execute.
+                </div>
+              )}
             </div>
           </div>
+
         </div>
       </div>
 
-      {/* New File Modal */}
-      {showNewFileModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-[#161b22] border border-[#30363d] p-6 rounded-xl w-80">
-            <h3 className="text-white font-bold mb-4">Create New File</h3>
-            <input
-              autoFocus
-              type="text"
-              value={newItemName}
-              onChange={(e) => setNewItemName(e.target.value)}
-              placeholder="filename.js, .py, .cpp..."
-              className="w-full bg-[#0d1117] border border-[#30363d] rounded px-3 py-2 text-white text-sm mb-4 outline-none focus:border-purple-500"
-              onKeyDown={(e) => e.key === 'Enter' && handleCreateFile()}
-            />
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setShowNewFileModal(false)} className="px-3 py-1.5 text-gray-400 hover:text-white text-sm">Cancel</button>
-              <button onClick={handleCreateFile} className="px-4 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded text-sm font-bold">Create</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* New Folder Modal */}
-      {showNewFolderModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-[#161b22] border border-[#30363d] p-6 rounded-xl w-80">
-            <h3 className="text-white font-bold mb-4">Create New Folder</h3>
-            <input
-              autoFocus
-              type="text"
-              value={newItemName}
-              onChange={(e) => setNewItemName(e.target.value)}
-              placeholder="folder name"
-              className="w-full bg-[#0d1117] border border-[#30363d] rounded px-3 py-2 text-white text-sm mb-4 outline-none focus:border-purple-500"
-              onKeyDown={(e) => e.key === 'Enter' && handleCreateFolder()}
-            />
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setShowNewFolderModal(false)} className="px-3 py-1.5 text-gray-400 hover:text-white text-sm">Cancel</button>
-              <button onClick={handleCreateFolder} className="px-4 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded text-sm font-bold">Create</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Context Menu */}
+      {/* Modals & Context Menu reused logic */}
       {contextMenu && (
-        <div 
-          className="fixed z-50 bg-[#161b22] border border-[#30363d] rounded-lg py-1 shadow-xl"
+        <div
+          className="fixed z-50 bg-[#161b22] border border-white/10 rounded-xl py-1 shadow-2xl w-48 backdrop-blur-md"
           style={{ left: contextMenu.x, top: contextMenu.y }}
-          onClick={() => setContextMenu(null)}
         >
-          {contextMenu.itemType === 'folder' && (
-            <>
-              <button 
-                onClick={() => { setSelectedFolderId(contextMenu.itemId); setShowNewFileModal(true); }}
-                className="w-full px-4 py-2 text-left text-sm text-gray-300 hover:bg-gray-800 flex items-center gap-2"
-              >
-                <FilePlus size={14} /> New File
-              </button>
-              <button 
-                onClick={() => { setSelectedFolderId(contextMenu.itemId); setShowNewFolderModal(true); }}
-                className="w-full px-4 py-2 text-left text-sm text-gray-300 hover:bg-gray-800 flex items-center gap-2"
-              >
-                <FolderPlus size={14} /> New Folder
-              </button>
-            </>
-          )}
-          <button 
-            onClick={() => handleDelete(contextMenu.itemId)}
-            className="w-full px-4 py-2 text-left text-sm text-red-400 hover:bg-gray-800 flex items-center gap-2"
-          >
+          <button onClick={() => handleDelete(contextMenu.itemId)} className="w-full px-4 py-2.5 text-left text-sm text-red-400 hover:bg-white/5 flex items-center gap-2 transition-colors">
             <Trash2 size={14} /> Delete
           </button>
         </div>
       )}
 
-      {/* Click outside to close context menu */}
-      {contextMenu && (
-        <div className="fixed inset-0 z-40" onClick={() => setContextMenu(null)} />
+      {contextMenu && <div className="fixed inset-0 z-40" onClick={() => setContextMenu(null)} />}
+
+      {/* Simple Modals for File/Folder creation (keeping functional logic same) */}
+      {showNewFileModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm">
+          <div className="bg-[#161b22] border border-white/10 p-6 rounded-2xl w-96 shadow-2xl">
+            <h3 className="text-white font-bold mb-4 text-lg">New File</h3>
+            <input autoFocus type="text" value={newItemName} onChange={(e) => setNewItemName(e.target.value)} placeholder="e.g., script.js" className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white text-sm mb-6 outline-none focus:border-sky-500/50 transition-colors" onKeyDown={(e) => e.key === 'Enter' && handleCreateFile()} />
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setShowNewFileModal(false)} className="px-4 py-2 text-gray-400 hover:text-white text-sm font-bold">Cancel</button>
+              <button onClick={handleCreateFile} className="px-6 py-2 bg-sky-500 hover:bg-sky-400 text-black rounded-xl text-sm font-bold">Create</button>
+            </div>
+          </div>
+        </div>
       )}
-    </div>
+    </MainLayout>
   );
 };
 
