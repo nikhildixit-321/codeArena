@@ -171,7 +171,7 @@ const PracticeArena = () => {
       <div className={`flex flex-col h-screen bg-background text-foreground ${isFullScreen ? '' : ''}`}>
 
         {/* Toolbar */}
-        <header className="h-14 border-b border-border bg-card flex items-center justify-between px-4 shrink-0">
+        <header className="h-14 border-b border-border bg-card flex items-center justify-between px-4 shrink-0 overflow-x-auto scrollbar-hide gap-4">
           <div className="flex items-center gap-4">
             <button onClick={() => navigate('/practice')} className="p-2 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-colors">
               <ChevronLeft size={20} />
@@ -230,7 +230,7 @@ const PracticeArena = () => {
         <div className="flex-1 flex overflow-hidden">
 
           {/* Left Panel: Description */}
-          <div className={`${isQuestionOpen ? 'w-1/3 min-w-[350px]' : 'w-0'} bg-card border-r border-border flex flex-col transition-all duration-300 relative`}>
+          <div className={`${isQuestionOpen ? 'absolute inset-0 z-20 w-full md:relative md:w-1/3 md:min-w-[350px]' : 'w-0'} bg-card border-r border-border flex flex-col transition-all duration-300`}>
             <div className="flex items-center border-b border-border">
               <button
                 onClick={() => setActiveTab('description')}
