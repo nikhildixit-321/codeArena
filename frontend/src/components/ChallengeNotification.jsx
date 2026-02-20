@@ -11,7 +11,29 @@ const ChallengeNotification = () => {
 
     useEffect(() => {
         if (!user) return;
-        if (!socket.connected) socket.connect();
+
+        // Debugging logs
+        console.log('Initializing Socket Connection...');
+        if (!socket.connected) {
+            console.log('Socket not connected, attempting to connect...');
+            socket.connect();
+        }
+
+        const onConnect = () => {
+            console.log('Socket Connected Successfully:', socket.id);
+        };
+
+        const onConnectError = (err) => {
+            console.error('Socket Connection Error:', err);
+        };
+
+        const onDisconnect = (reason) => {
+            console.warn('Socket Disconnected:', reason);
+        };
+
+        socket.on('connect', onConnect);
+        socket.on('connect_error', onConnectError);
+        socket.on('disconnect', onDisconnect);
 
         const handleNewChallenger = (data) => {
             // Don't notify if I am the challenger (shouldn't happen with broadcast, but safety check)
@@ -21,13 +43,15 @@ const ChallengeNotification = () => {
             const userRating = user.rating !== undefined ? user.rating : 600;
             const challengerRating = data.rating !== undefined ? data.rating : 600;
 
+            console.log(`Challenge Received: User Rating ${userRating}, Challenger Rating ${challengerRating}`);
+
             const ratingDiff = Math.abs(userRating - challengerRating);
             if (ratingDiff > 150) {
                 console.log("Ignored challenge due to rating difference:", ratingDiff);
                 return;
             }
 
-            console.log('New Challenger Reiveced:', data);
+            console.log('New Challenger Accepted for Display:', data);
             setChallenger(data);
 
             // Auto-dismiss after 15 seconds
@@ -41,6 +65,9 @@ const ChallengeNotification = () => {
         socket.on('newChallenger', handleNewChallenger);
 
         return () => {
+            socket.off('connect', onConnect);
+            socket.off('connect_error', onConnectError);
+            socket.off('disconnect', onDisconnect);
             socket.off('newChallenger', handleNewChallenger);
         };
     }, [user]);
