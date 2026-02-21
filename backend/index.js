@@ -195,10 +195,48 @@ io.on('connection', (socket) => {
           if (m && m.status === 'active') {
             m.status = 'completed';
             m.endTime = new Date();
+
+            // Deciding winner by score or tie-break
+            const p1 = m.players[0];
+            const p2 = m.players[1];
+            let winnerId = null;
+
+            if ((p1.score || 0) > (p2.score || 0)) winnerId = p1.user;
+            else if ((p2.score || 0) > (p1.score || 0)) winnerId = p2.user;
+            else if ((p1.score || 0) === (p2.score || 0) && (p1.score || 0) > 0) {
+              winnerId = (p1.executionTime || Infinity) < (p2.executionTime || Infinity) ? p1.user : p2.user;
+            }
+
+            m.winner = winnerId;
+            let ratingChanges = [];
+
+            if (winnerId) {
+              const winner = await User.findById(winnerId);
+              const loserId = m.players.find(p => p.user.toString() !== winnerId.toString()).user;
+              const loser = await User.findById(loserId);
+
+              if (winner && loser) {
+                winner.rating += 20;
+                winner.matchesPlayed += 1;
+                winner.matchesWon += 1;
+                await winner.save();
+
+                loser.rating = Math.max(0, loser.rating - 12);
+                loser.matchesPlayed += 1;
+                await loser.save();
+
+                ratingChanges = [
+                  { userId: winnerId, change: 20 },
+                  { userId: loserId.toString(), change: -12 }
+                ];
+              }
+            }
+
             await m.save();
             io.to(`match_${newMatch._id}`).emit('matchEnded', {
               reason: 'Time expired',
-              winner: null
+              winner: winnerId,
+              ratingChanges
             });
           }
         }, duration * 1000);
@@ -309,10 +347,47 @@ io.on('connection', (socket) => {
         if (m && m.status === 'active') {
           m.status = 'completed';
           m.endTime = new Date();
+
+          const p1 = m.players[0];
+          const p2 = m.players[1];
+          let winnerId = null;
+
+          if ((p1.score || 0) > (p2.score || 0)) winnerId = p1.user;
+          else if ((p2.score || 0) > (p1.score || 0)) winnerId = p2.user;
+          else if ((p1.score || 0) === (p2.score || 0) && (p1.score || 0) > 0) {
+            winnerId = (p1.executionTime || Infinity) < (p2.executionTime || Infinity) ? p1.user : p2.user;
+          }
+
+          m.winner = winnerId;
+          let ratingChanges = [];
+
+          if (winnerId) {
+            const winner = await User.findById(winnerId);
+            const loserId = m.players.find(p => p.user.toString() !== winnerId.toString()).user;
+            const loser = await User.findById(loserId);
+
+            if (winner && loser) {
+              winner.rating += 20;
+              winner.matchesPlayed += 1;
+              winner.matchesWon += 1;
+              await winner.save();
+
+              loser.rating = Math.max(0, loser.rating - 12);
+              loser.matchesPlayed += 1;
+              await loser.save();
+
+              ratingChanges = [
+                { userId: winnerId, change: 20 },
+                { userId: loserId.toString(), change: -12 }
+              ];
+            }
+          }
+
           await m.save();
           io.to(matchRoom).emit('matchEnded', {
             reason: 'Time expired',
-            winner: null
+            winner: winnerId,
+            ratingChanges
           });
         }
       }, duration * 1000);
