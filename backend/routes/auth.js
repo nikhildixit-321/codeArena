@@ -4,6 +4,36 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const router = express.Router();
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+
+// Configure Multer for Avatar Uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = 'uploads/avatars';
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'avatar-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|webp/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    if (extname && mimetype) return cb(null, true);
+    cb(new Error('Only images (jpg, png, webp) are allowed'));
+  }
+});
 
 // Generate JWT token
 const generateToken = (user) => {
@@ -133,6 +163,34 @@ router.get('/me', authenticateToken, async (req, res) => {
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
+});
+
+// Update Avatar
+router.post('/avatar', authenticateToken, (req, res) => {
+  upload.single('avatar')(req, res, async (err) => {
+    if (err instanceof multer.MulterError) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ message: 'File is too large. Max limit is 5MB' });
+      }
+      return res.status(400).json({ message: err.message });
+    } else if (err) {
+      return res.status(400).json({ message: err.message });
+    }
+
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: 'Please upload an image' });
+      }
+
+      const avatarUrl = `${process.env.BACKEND_URL || 'http://localhost:5000'}/uploads/avatars/${req.file.filename}`;
+
+      await User.findByIdAndUpdate(req.user.id, { avatar: avatarUrl });
+
+      res.json({ message: 'Avatar updated successfully', avatarUrl });
+    } catch (err) {
+      res.status(500).json({ message: err.message });
+    }
+  });
 });
 
 module.exports = router;

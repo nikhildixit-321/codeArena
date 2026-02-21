@@ -40,6 +40,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(morgan('dev'));
+app.use('/uploads', express.static('uploads'));
 
 // Session management
 app.use(session({
@@ -72,6 +73,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/questions', questionRoutes);
 app.use('/api/execute', executeRoutes);
 app.use('/api/match', require('./routes/matchRoutes'));
+app.use('/api/users', require('./routes/users'));
 
 // Basic route
 app.get('/', (req, res) => {
@@ -390,16 +392,52 @@ io.on('connection', (socket) => {
       match.winner = match.players.find(p => p.user.toString() !== userId.toString()).user; // Opponent wins
       await match.save();
 
-      io.to(matchId).emit('matchAborted', { abortedBy: userId, message: 'Opponent aborted.' });
+      io.to(`match_${matchId}`).emit('matchAborted', { abortedBy: userId, message: 'Opponent aborted.' });
 
     } catch (err) {
       console.error('Abort Error:', err);
     }
   });
 
-  socket.on('disconnect', () => {
+  socket.on('disconnect', async () => {
     console.log('User disconnected:', socket.id);
     waitingQueue = waitingQueue.filter(p => p.socketId !== socket.id);
+
+    // Check if player was in an active match
+    try {
+      const activeMatch = await Match.findOne({
+        status: 'active',
+        'players.socketId': socket.id
+      });
+
+      if (activeMatch) {
+        const player = activeMatch.players.find(p => p.socketId === socket.id);
+        const opponent = activeMatch.players.find(p => p.socketId !== socket.id);
+
+        if (player && opponent) {
+          // Penalize the disconnected player
+          const user = await User.findById(player.user);
+          if (user) {
+            user.rating = Math.max(0, user.rating - 20);
+            await user.save();
+          }
+
+          // Complete match and award win to opponent
+          activeMatch.status = 'completed';
+          activeMatch.winner = opponent.user;
+          activeMatch.endTime = new Date();
+          await activeMatch.save();
+
+          // Notify opponent
+          io.to(`match_${activeMatch._id}`).emit('matchAborted', {
+            abortedBy: player.user,
+            message: 'Opponent disconnected from the arena.'
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Disconnect match cleanup error:', err);
+    }
   });
 });
 

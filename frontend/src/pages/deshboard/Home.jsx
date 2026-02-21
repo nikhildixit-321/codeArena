@@ -9,8 +9,9 @@ import {
   TrendingUp, Monitor, Globe, ChevronRight, Star, Clock,
   Users, PlayCircle
 } from 'lucide-react';
+import SocialModal from '../../components/SocialModal';
 
-const DashboardContent = () => {
+const DashboardContent = ({ isSocialOpen, setIsSocialOpen, onOpenSocial }) => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [stats, setStats] = useState({
@@ -77,14 +78,17 @@ const DashboardContent = () => {
             <div>
               <p className="text-gray-400 text-sm font-bold uppercase tracking-widest mb-1">Dashboard</p>
               <h1 className="text-3xl md:text-4xl font-black text-white">
-                Good Evening, <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-indigo-500">{user?.username || 'Coder'}</span>
+                Good Evening, <span className="text-transparent bg-clip-text bg-linear-to-r from-sky-400 to-indigo-500">{user?.username || 'Coder'}</span>
               </h1>
               <p className="text-gray-500 mt-2 text-sm max-w-md">
                 Your current rank is <span className="text-white font-bold">Grandmaster</span>. Keep pushing to reach the top 100.
               </p>
             </div>
             <div className="flex gap-3">
-              <button className="px-5 py-2.5 bg-[#1a1a20] border border-white/10 hover:border-sky-500/30 text-white rounded-xl text-sm font-bold transition-all flex items-center gap-2">
+              <button
+                onClick={onOpenSocial}
+                className="px-5 py-2.5 bg-[#1a1a20] border border-white/10 hover:border-sky-500/30 text-white rounded-xl text-sm font-bold transition-all flex items-center gap-2"
+              >
                 <Users size={16} className="text-sky-400" /> Friends
               </button>
               <button className="px-5 py-2.5 bg-sky-500 hover:bg-sky-400 text-black rounded-xl text-sm font-bold shadow-[0_0_15px_rgba(14,165,233,0.3)] transition-all flex items-center gap-2">
@@ -199,7 +203,7 @@ const DashboardContent = () => {
                     <div className="p-8 text-center text-gray-500 text-sm">No active battles right now. Be the first!</div>
                   ) : (
                     liveMatches.map((match, i) => (
-                      <div key={match._id || i} className="p-4 border-b border-white/5 last:border-0 hover:bg-white/[0.02] flex items-center justify-between group transition-colors">
+                      <div key={match._id || i} className="p-4 border-b border-white/5 last:border-0 hover:bg-white/2 flex items-center justify-between group transition-colors">
                         <div className="flex items-center gap-4">
                           <div className="flex -space-x-2">
                             {match.players?.slice(0, 2).map((p, idx) => (
@@ -233,7 +237,7 @@ const DashboardContent = () => {
             <div className="space-y-6">
 
               {/* Daily Challenge */}
-              <div className="bg-gradient-to-br from-[#1a1a20] to-[#0e0e12] border border-white/5 p-6 rounded-2xl relative overflow-hidden group">
+              <div className="bg-linear-to-br from-[#1a1a20] to-[#0e0e12] border border-white/5 p-6 rounded-2xl relative overflow-hidden group">
                 <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                   <Target size={80} />
                 </div>
@@ -242,8 +246,8 @@ const DashboardContent = () => {
                   <>
                     <div className="flex items-center gap-2 mb-4 relative z-10">
                       <span className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded border ${dailyChallenge.question?.difficulty === 'Hard' ? 'bg-red-500/10 text-red-500 border-red-500/20' :
-                        dailyChallenge.question?.difficulty === 'Medium' ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' :
-                          'bg-green-500/10 text-green-500 border-green-500/20'
+                        dailyChallenge.question?.difficulty === 'Medium' ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' :
+                          'bg-green-500/10 text-green-400 border-green-500/20'
                         }`}>
                         {dailyChallenge.question?.difficulty || 'Medium'}
                       </span>
@@ -331,9 +335,18 @@ const ActionCard = ({ title, desc, icon: Icon, color, onClick }) => (
 );
 
 const Home = () => {
+  const [isSocialOpen, setIsSocialOpen] = useState(false);
+  const [initialSocialTab, setInitialSocialTab] = useState('friends');
+
+  const openSocial = (tab = 'friends') => {
+    setInitialSocialTab(tab);
+    setIsSocialOpen(true);
+  };
+
   return (
-    <MainLayout navbar={<HomeNavbar />}>
-      <DashboardContent />
+    <MainLayout navbar={<HomeNavbar onOpenSocial={() => openSocial('requests')} />}>
+      <DashboardContent isSocialOpen={isSocialOpen} setIsSocialOpen={setIsSocialOpen} onOpenSocial={() => openSocial('friends')} />
+      <SocialModal isOpen={isSocialOpen} onClose={() => setIsSocialOpen(false)} initialTab={initialSocialTab} />
     </MainLayout>
   );
 };

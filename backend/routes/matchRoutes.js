@@ -15,10 +15,10 @@ router.get('/daily', auth, matchController.getDailyChallenge);
 // Get Active Matches (Live)
 router.get('/active', auth, matchController.getActiveMatches);
 
+// Get Leaderboard
+router.get('/leaderboard', matchController.getLeaderboard);
+
 // Get Match Details
 router.get('/:matchId', auth, matchController.getMatchDetails);
-
-// Get Leaderboard
-router.get('/leaderboard', matchController.getLeaderboard); // Public route usually
 
 module.exports = router;
