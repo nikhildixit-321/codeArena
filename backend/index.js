@@ -159,7 +159,9 @@ io.on('connection', (socket) => {
           ? potentialQuestions[Math.floor(Math.random() * potentialQuestions.length)]
           : await Question.findOne().skip(Math.floor(Math.random() * await Question.countDocuments()));
 
-        const duration = question.timeLimit || (question.difficulty === 'Hard' ? 45 * 60 : question.difficulty === 'Medium' ? 25 * 60 : 15 * 60);
+        const duration = (question.timeLimit && question.timeLimit >= 60)
+          ? question.timeLimit
+          : (question.difficulty === 'Hard' ? 45 * 60 : question.difficulty === 'Medium' ? 25 * 60 : 15 * 60);
 
         // Create match
         const newMatch = await Match.create({
@@ -261,8 +263,10 @@ io.on('connection', (socket) => {
         return;
       }
 
-      // Calculate duration
-      const duration = question.timeLimit || (question.difficulty === 'Hard' ? 45 * 60 : question.difficulty === 'Medium' ? 25 * 60 : 15 * 60);
+      // Calculate duration - Use difficulty fallback if timeLimit is missing or too low (< 1 min)
+      const duration = (question.timeLimit && question.timeLimit >= 60)
+        ? question.timeLimit
+        : (question.difficulty === 'Hard' ? 45 * 60 : question.difficulty === 'Medium' ? 25 * 60 : 15 * 60);
 
       // Create match
       const newMatch = await Match.create({
