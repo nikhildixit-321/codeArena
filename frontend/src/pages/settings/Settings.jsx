@@ -70,6 +70,7 @@ const Settings = () => {
     });
 
     const [showHelp, setShowHelp] = useState(false);
+    const [activeSection, setActiveSection] = useState('General');
 
     const handlePasswordChange = async (e) => {
         e.preventDefault();
@@ -127,210 +128,217 @@ const Settings = () => {
                             )}
 
                             {/* Account Section */}
-                            <section className="bg-[#111114] border border-white/10 rounded-2xl overflow-hidden">
-                                <div className="p-6 border-b border-white/5 bg-white/2">
-                                    <h2 className="text-lg font-bold flex items-center gap-2">
-                                        <Globe size={18} className="text-sky-400" />
-                                        Account Preferences
-                                    </h2>
-                                </div>
-                                <div className="p-6 space-y-6">
-                                    <ToggleSetting
-                                        icon={Eye}
-                                        title="Public Profile"
-                                        desc="Allow others to see your stats and match history."
-                                        active={settings.publicProfile}
-                                        onToggle={() => handleToggle('publicProfile')}
-                                    />
-                                    <ToggleSetting
-                                        icon={Bell}
-                                        title="Push Notifications"
-                                        desc="Receive alerts for friend requests and match invites."
-                                        active={settings.notifications}
-                                        onToggle={() => handleToggle('notifications')}
-                                    />
-                                    <ToggleSetting
-                                        icon={Volume2}
-                                        title="Sound Effects"
-                                        desc="Play sounds for notifications and game actions."
-                                        active={settings.soundEffects}
-                                        onToggle={() => handleToggle('soundEffects')}
-                                    />
-                                </div>
-                            </section>
-
-                            {/* Linked Accounts Section */}
-                            <section className="bg-[#111114] border border-white/10 rounded-2xl overflow-hidden">
-                                <div className="p-6 border-b border-white/5 bg-white/2">
-                                    <h2 className="text-lg font-bold flex items-center gap-2">
-                                        <Code2 size={18} className="text-sky-400" />
-                                        Linked Platforms
-                                    </h2>
-                                    <p className="text-xs text-gray-500 mt-1">Connect your accounts for auto-sync and cross-platform rewards.</p>
-                                </div>
-                                <div className="p-6 space-y-4">
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">LeetCode Username</label>
-                                        <div className="flex gap-2">
-                                            <input
-                                                type="text"
-                                                value={settings.leetcodeHandle}
-                                                onChange={(e) => setSettings({ ...settings, leetcodeHandle: e.target.value })}
-                                                placeholder="e.g., nikhildixit"
-                                                className="flex-1 bg-black/40 border border-white/5 rounded-xl px-4 py-2.5 text-sm text-white focus:border-sky-500/50 outline-none transition-all"
-                                            />
-                                            <button
-                                                onClick={() => saveSettings(settings)}
-                                                className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-xs font-bold transition-all"
-                                            >
-                                                Save
-                                            </button>
-                                        </div>
+                            {activeSection === 'General' && (
+                                <section className="bg-[#111114] border border-white/10 rounded-2xl overflow-hidden animate-in slide-in-from-bottom-2 duration-300">
+                                    <div className="p-6 border-b border-white/5 bg-white/2">
+                                        <h2 className="text-lg font-bold flex items-center gap-2">
+                                            <Globe size={18} className="text-sky-400" />
+                                            Account Preferences
+                                        </h2>
                                     </div>
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Codeforces Handle</label>
-                                        <div className="flex gap-2">
-                                            <input
-                                                type="text"
-                                                value={settings.codeforcesHandle}
-                                                onChange={(e) => setSettings({ ...settings, codeforcesHandle: e.target.value })}
-                                                placeholder="e.g., nikhildixit"
-                                                className="flex-1 bg-black/40 border border-white/5 rounded-xl px-4 py-2.5 text-sm text-white focus:border-sky-500/50 outline-none transition-all"
-                                            />
-                                            <button
-                                                onClick={() => saveSettings(settings)}
-                                                className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-xs font-bold transition-all"
-                                            >
-                                                Save
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div className="h-px bg-white/5 my-4"></div>
-                                    <div className="space-y-4">
-                                        <div className="flex items-center justify-between">
-                                            <div>
-                                                <h4 className="text-sm font-bold text-white">Auto-Submit to LeetCode</h4>
-                                                <p className="text-[10px] text-gray-500">Automatically push solved match results to your LeetCode profile.</p>
-                                            </div>
-                                            <button
-                                                onClick={() => handleToggle('autoSubmitEnabled')}
-                                                className={`w-10 h-5 rounded-full relative transition-all ${settings.autoSubmitEnabled ? 'bg-sky-500' : 'bg-white/10'}`}
-                                            >
-                                                <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${settings.autoSubmitEnabled ? 'left-6' : 'left-1'}`} />
-                                            </button>
-                                        </div>
-                                        {settings.autoSubmitEnabled && (
-                                            <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
-                                                <div className="flex items-center justify-between">
-                                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none">LeetCode Session Cookie</label>
-                                                    <button
-                                                        onClick={() => setShowHelp(!showHelp)}
-                                                        className="text-[10px] text-sky-400 font-bold hover:underline"
-                                                    >
-                                                        {showHelp ? 'Hide Guide' : 'How to find it?'}
-                                                    </button>
-                                                </div>
-
-                                                {showHelp && (
-                                                    <div className="p-4 bg-sky-500/5 border border-sky-500/20 rounded-xl space-y-3 animate-in zoom-in-95 duration-200">
-                                                        <h5 className="text-xs font-bold text-sky-400">Quick Guide:</h5>
-                                                        <ul className="text-[10px] text-gray-400 space-y-2 list-decimal ml-4 font-medium">
-                                                            <li>Login to <a href="https://leetcode.com" target="_blank" rel="noreferrer" className="text-white hover:underline">leetcode.com</a>.</li>
-                                                            <li>Press <span className="bg-white/10 px-1 rounded text-white font-mono text-[9px]">F12</span> or <span className="text-white">Inspect</span>.</li>
-                                                            <li>Go to <span className="text-white font-bold text-[9px]">Application</span> {'>'} <span className="text-white font-bold text-[9px]">Cookies</span>.</li>
-                                                            <li>Copy the value of <span className="text-sky-400 font-bold text-[9px]">LEETCODE_SESSION</span>.</li>
-                                                        </ul>
-                                                    </div>
-                                                )}
-                                                <input
-                                                    type="password"
-                                                    value={settings.leetcodeSession}
-                                                    onChange={(e) => setSettings({ ...settings, leetcodeSession: e.target.value })}
-                                                    placeholder="Paste LEETCODE_SESSION value here..."
-                                                    className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-2 text-xs text-white focus:border-sky-500/50 outline-none"
-                                                />
-
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </section>
-
-                            {/* Security Section */}
-                            <section className="bg-[#111114] border border-white/10 rounded-2xl overflow-hidden">
-                                <div className="p-6 border-b border-white/5 bg-white/2">
-                                    <h2 className="text-lg font-bold flex items-center gap-2">
-                                        <Lock size={18} className="text-orange-500" />
-                                        Security
-                                    </h2>
-                                </div>
-                                <form onSubmit={handlePasswordChange} className="p-6 space-y-4">
-                                    <div>
-                                        <label className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5 block">Current Password</label>
-                                        <input
-                                            type="password"
-                                            required
-                                            value={passwords.current}
-                                            onChange={(e) => setPasswords({ ...passwords, current: e.target.value })}
-                                            className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:border-sky-500/50"
-                                            placeholder="Enter current password"
+                                    <div className="p-6 space-y-6">
+                                        <ToggleSetting
+                                            icon={Eye}
+                                            title="Public Profile"
+                                            desc="Allow others to see your stats and match history."
+                                            active={settings.publicProfile}
+                                            onToggle={() => handleToggle('publicProfile')}
+                                        />
+                                        <ToggleSetting
+                                            icon={Bell}
+                                            title="Push Notifications"
+                                            desc="Receive alerts for friend requests and match invites."
+                                            active={settings.notifications}
+                                            onToggle={() => handleToggle('notifications')}
+                                        />
+                                        <ToggleSetting
+                                            icon={Volume2}
+                                            title="Sound Effects"
+                                            desc="Play sounds for notifications and game actions."
+                                            active={settings.soundEffects}
+                                            onToggle={() => handleToggle('soundEffects')}
                                         />
                                     </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5 block">New Password</label>
-                                            <input
-                                                type="password"
-                                                required
-                                                value={passwords.new}
-                                                onChange={(e) => setPasswords({ ...passwords, new: e.target.value })}
-                                                className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:border-sky-500/50"
-                                                placeholder="Min. 6 characters"
-                                            />
+                                </section>
+                            )}
+
+                            {/* Linked Accounts Section */}
+                            {activeSection === 'Accounts' && (
+                                <section className="bg-[#111114] border border-white/10 rounded-2xl overflow-hidden animate-in slide-in-from-bottom-2 duration-300">
+                                    <div className="p-6 border-b border-white/5 bg-white/2">
+                                        <h2 className="text-lg font-bold flex items-center gap-2">
+                                            <Shield size={18} className="text-sky-400" />
+                                            Linked Platforms
+                                        </h2>
+                                        <p className="text-xs text-gray-500 mt-1">Connect your accounts for auto-sync and cross-platform rewards.</p>
+                                    </div>
+                                    <div className="p-6 space-y-4">
+                                        <div className="space-y-2">
+                                            <label className="text-xs font-bold text-gray-400 uppercase tracking-widest leading-none">LeetCode Username</label>
+                                            <div className="flex gap-2">
+                                                <input
+                                                    type="text"
+                                                    value={settings.leetcodeHandle}
+                                                    onChange={(e) => setSettings({ ...settings, leetcodeHandle: e.target.value })}
+                                                    placeholder="e.g., nikhildixit"
+                                                    className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:border-sky-500/50 outline-none transition-all"
+                                                />
+                                                <button
+                                                    onClick={() => saveSettings(settings)}
+                                                    className="px-4 py-2 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 rounded-xl text-xs font-bold transition-all"
+                                                >
+                                                    Save
+                                                </button>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5 block">Confirm Password</label>
-                                            <input
-                                                type="password"
-                                                required
-                                                value={passwords.confirm}
-                                                onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })}
-                                                className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:border-sky-500/50"
-                                                placeholder="Repeat new password"
-                                            />
+                                        <div className="space-y-2">
+                                            <label className="text-xs font-bold text-gray-400 uppercase tracking-widest leading-none">Codeforces Handle</label>
+                                            <div className="flex gap-2">
+                                                <input
+                                                    type="text"
+                                                    value={settings.codeforcesHandle}
+                                                    onChange={(e) => setSettings({ ...settings, codeforcesHandle: e.target.value })}
+                                                    placeholder="e.g., nikhildixit"
+                                                    className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:border-sky-500/50 outline-none transition-all"
+                                                />
+                                                <button
+                                                    onClick={() => saveSettings(settings)}
+                                                    className="px-4 py-2 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 rounded-xl text-xs font-bold transition-all"
+                                                >
+                                                    Save
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div className="h-px bg-white/5 my-4"></div>
+                                        <div className="space-y-4">
+                                            <div className="flex items-center justify-between">
+                                                <div>
+                                                    <h4 className="text-sm font-bold text-white">Auto-Submit to LeetCode</h4>
+                                                    <p className="text-[10px] text-gray-500">Automatically push solved match results to your LeetCode profile.</p>
+                                                </div>
+                                                <button
+                                                    onClick={() => handleToggle('autoSubmitEnabled')}
+                                                    className={`w-10 h-5 rounded-full relative transition-all ${settings.autoSubmitEnabled ? 'bg-sky-500' : 'bg-white/10'}`}
+                                                >
+                                                    <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${settings.autoSubmitEnabled ? 'left-6' : 'left-1'}`} />
+                                                </button>
+                                            </div>
+                                            {settings.autoSubmitEnabled && (
+                                                <div className="space-y-3 animate-in fade-in slide-in-from-top-2">
+                                                    <div className="flex items-center justify-between">
+                                                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest leading-none">LeetCode Session Cookie</label>
+                                                        <button
+                                                            onClick={() => setShowHelp(!showHelp)}
+                                                            className="text-[10px] text-sky-400 font-bold hover:underline"
+                                                        >
+                                                            {showHelp ? 'Hide Guide' : 'How to find it?'}
+                                                        </button>
+                                                    </div>
+
+                                                    {showHelp && (
+                                                        <div className="p-4 bg-sky-500/5 border border-sky-500/20 rounded-xl space-y-3 animate-in zoom-in-95 duration-200">
+                                                            <h5 className="text-xs font-bold text-sky-400">Quick Guide:</h5>
+                                                            <ul className="text-[10px] text-gray-400 space-y-2 list-decimal ml-4 font-medium">
+                                                                <li>Login to <a href="https://leetcode.com" target="_blank" rel="noreferrer" className="text-white hover:underline">leetcode.com</a>.</li>
+                                                                <li>Press <span className="bg-white/10 px-1 rounded text-white font-mono text-[9px]">F12</span> or <span className="text-white">Inspect</span>.</li>
+                                                                <li>Go to <span className="text-white font-bold text-[9px]">Application</span> {'>'} <span className="text-white font-bold text-[9px]">Cookies</span>.</li>
+                                                                <li>Copy the value of <span className="text-sky-400 font-bold text-[9px]">LEETCODE_SESSION</span>.</li>
+                                                            </ul>
+                                                        </div>
+                                                    )}
+                                                    <input
+                                                        type="password"
+                                                        value={settings.leetcodeSession}
+                                                        onChange={(e) => setSettings({ ...settings, leetcodeSession: e.target.value })}
+                                                        placeholder="Paste LEETCODE_SESSION value here..."
+                                                        className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:border-sky-500/50 outline-none transition-all"
+                                                    />
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
-                                    <button
-                                        type="submit"
-                                        disabled={loading}
-                                        className="w-full md:w-auto px-6 py-2.5 bg-sky-500 hover:bg-sky-600 disabled:bg-sky-500/50 text-black font-black rounded-xl transition-all flex items-center justify-center gap-2"
-                                    >
-                                        {loading ? 'Changing...' : (
-                                            <>
-                                                <Save size={18} />
-                                                Update Password
-                                            </>
-                                        )}
-                                    </button>
-                                </form>
-                            </section>
+                                </section>
+                            )}
+
+                            {/* Security Section */}
+                            {activeSection === 'Security' && (
+                                <section className="bg-[#111114] border border-white/10 rounded-2xl overflow-hidden animate-in slide-in-from-bottom-2 duration-300">
+                                    <div className="p-6 border-b border-white/5 bg-white/2">
+                                        <h2 className="text-lg font-bold flex items-center gap-2">
+                                            <Lock size={18} className="text-orange-500" />
+                                            Security
+                                        </h2>
+                                    </div>
+                                    <form onSubmit={handlePasswordChange} className="p-6 space-y-4">
+                                        <div>
+                                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5 block">Current Password</label>
+                                            <input
+                                                type="password"
+                                                required
+                                                value={passwords.current}
+                                                onChange={(e) => setPasswords({ ...passwords, current: e.target.value })}
+                                                className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:border-sky-500/50"
+                                                placeholder="Enter current password"
+                                            />
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5 block">New Password</label>
+                                                <input
+                                                    type="password"
+                                                    required
+                                                    value={passwords.new}
+                                                    onChange={(e) => setPasswords({ ...passwords, new: e.target.value })}
+                                                    className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:border-sky-500/50"
+                                                    placeholder="Min. 6 characters"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5 block">Confirm Password</label>
+                                                <input
+                                                    type="password"
+                                                    required
+                                                    value={passwords.confirm}
+                                                    onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })}
+                                                    className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:border-sky-500/50"
+                                                    placeholder="Repeat new password"
+                                                />
+                                            </div>
+                                        </div>
+                                        <button
+                                            type="submit"
+                                            disabled={loading}
+                                            className="w-full md:w-auto px-6 py-2.5 bg-sky-500 hover:bg-sky-600 disabled:bg-sky-500/50 text-black font-black rounded-xl transition-all flex items-center justify-center gap-2"
+                                        >
+                                            {loading ? 'Changing...' : (
+                                                <>
+                                                    <Save size={18} />
+                                                    Update Password
+                                                </>
+                                            )}
+                                        </button>
+                                    </form>
+                                </section>
+                            )}
 
                             {/* Danger Zone */}
-                            <section className="bg-red-500/5 border border-red-500/20 rounded-2xl overflow-hidden">
-                                <div className="p-6">
-                                    <h2 className="text-lg font-bold text-red-500 flex items-center gap-2 mb-2">
-                                        <Trash2 size={18} />
-                                        Danger Zone
-                                    </h2>
-                                    <p className="text-sm text-gray-500 mb-6">Once you delete your account, there is no going back. Please be certain.</p>
-                                    <button
-                                        onClick={handleDeleteAccount}
-                                        className="px-6 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-500 font-bold rounded-xl border border-red-500/30 transition-all font-mono uppercase text-xs"
-                                    >
-                                        Delete My Account Permanently
-                                    </button>
-                                </div>
-                            </section>
+                            {activeSection === 'Privacy' && (
+                                <section className="bg-red-500/5 border border-red-500/20 rounded-2xl overflow-hidden animate-in slide-in-from-bottom-2 duration-300">
+                                    <div className="p-6">
+                                        <h2 className="text-lg font-bold text-red-500 flex items-center gap-2 mb-2">
+                                            <Trash2 size={18} />
+                                            Danger Zone
+                                        </h2>
+                                        <p className="text-sm text-gray-500 mb-6">Once you delete your account, there is no going back. Please be certain.</p>
+                                        <button
+                                            onClick={handleDeleteAccount}
+                                            className="px-6 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-500 font-bold rounded-xl border border-red-500/30 transition-all font-mono uppercase text-xs"
+                                        >
+                                            Delete My Account Permanently
+                                        </button>
+                                    </div>
+                                </section>
+                            )}
                         </div>
                     </div>
                 </div>
