@@ -15,7 +15,9 @@ const Settings = () => {
         notifications: user?.settings?.notifications ?? true,
         publicProfile: user?.settings?.publicProfile ?? true,
         soundEffects: user?.settings?.soundEffects ?? true,
-        language: user?.settings?.language ?? 'English'
+        language: user?.settings?.language ?? 'English',
+        leetcodeHandle: user?.settings?.leetcodeHandle ?? '',
+        codeforcesHandle: user?.settings?.codeforcesHandle ?? ''
     });
 
     useEffect(() => {
@@ -24,7 +26,11 @@ const Settings = () => {
                 notifications: user.settings.notifications,
                 publicProfile: user.settings.publicProfile,
                 soundEffects: user.settings.soundEffects,
-                language: user.settings.language
+                language: user.settings.language,
+                leetcodeHandle: user.settings.leetcodeHandle || '',
+                codeforcesHandle: user.settings.codeforcesHandle || '',
+                leetcodeSession: user.settings.leetcodeSession || '',
+                autoSubmitEnabled: user.settings.autoSubmitEnabled || false
             });
         }
     }, [user]);
@@ -63,6 +69,8 @@ const Settings = () => {
         confirm: ''
     });
 
+    const [showHelp, setShowHelp] = useState(false);
+
     const handlePasswordChange = async (e) => {
         e.preventDefault();
         if (passwords.new !== passwords.confirm) {
@@ -97,12 +105,13 @@ const Settings = () => {
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                        {/* Sidebar Navigation (Visual only for now) */}
-                        <div className="space-y-1">
-                            {['General', 'Security', 'Privacy', 'Notifications'].map((tab) => (
+                        {/* Sidebar Navigation */}
+                        <div className="flex md:flex-col gap-1 overflow-x-auto no-scrollbar pb-2 md:pb-0">
+                            {['General', 'Accounts', 'Security', 'Privacy'].map((tab) => (
                                 <button
                                     key={tab}
-                                    className={`w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${tab === 'General' ? 'bg-white/10 text-white' : 'text-gray-500 hover:bg-white/5 hover:text-gray-300'}`}
+                                    className={`whitespace-nowrap md:w-full text-left px-4 py-2.5 rounded-lg text-sm font-bold transition-colors ${activeSection === tab ? 'bg-sky-500/10 text-sky-400' : 'text-gray-500 hover:bg-white/5 hover:text-gray-300'}`}
+                                    onClick={() => setActiveSection(tab)}
                                 >
                                     {tab}
                                 </button>
@@ -147,6 +156,103 @@ const Settings = () => {
                                         active={settings.soundEffects}
                                         onToggle={() => handleToggle('soundEffects')}
                                     />
+                                </div>
+                            </section>
+
+                            {/* Linked Accounts Section */}
+                            <section className="bg-[#111114] border border-white/10 rounded-2xl overflow-hidden">
+                                <div className="p-6 border-b border-white/5 bg-white/2">
+                                    <h2 className="text-lg font-bold flex items-center gap-2">
+                                        <Code2 size={18} className="text-sky-400" />
+                                        Linked Platforms
+                                    </h2>
+                                    <p className="text-xs text-gray-500 mt-1">Connect your accounts for auto-sync and cross-platform rewards.</p>
+                                </div>
+                                <div className="p-6 space-y-4">
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">LeetCode Username</label>
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="text"
+                                                value={settings.leetcodeHandle}
+                                                onChange={(e) => setSettings({ ...settings, leetcodeHandle: e.target.value })}
+                                                placeholder="e.g., nikhildixit"
+                                                className="flex-1 bg-black/40 border border-white/5 rounded-xl px-4 py-2.5 text-sm text-white focus:border-sky-500/50 outline-none transition-all"
+                                            />
+                                            <button
+                                                onClick={() => saveSettings(settings)}
+                                                className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-xs font-bold transition-all"
+                                            >
+                                                Save
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Codeforces Handle</label>
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="text"
+                                                value={settings.codeforcesHandle}
+                                                onChange={(e) => setSettings({ ...settings, codeforcesHandle: e.target.value })}
+                                                placeholder="e.g., nikhildixit"
+                                                className="flex-1 bg-black/40 border border-white/5 rounded-xl px-4 py-2.5 text-sm text-white focus:border-sky-500/50 outline-none transition-all"
+                                            />
+                                            <button
+                                                onClick={() => saveSettings(settings)}
+                                                className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-xs font-bold transition-all"
+                                            >
+                                                Save
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div className="h-px bg-white/5 my-4"></div>
+                                    <div className="space-y-4">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <h4 className="text-sm font-bold text-white">Auto-Submit to LeetCode</h4>
+                                                <p className="text-[10px] text-gray-500">Automatically push solved match results to your LeetCode profile.</p>
+                                            </div>
+                                            <button
+                                                onClick={() => handleToggle('autoSubmitEnabled')}
+                                                className={`w-10 h-5 rounded-full relative transition-all ${settings.autoSubmitEnabled ? 'bg-sky-500' : 'bg-white/10'}`}
+                                            >
+                                                <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${settings.autoSubmitEnabled ? 'left-6' : 'left-1'}`} />
+                                            </button>
+                                        </div>
+                                        {settings.autoSubmitEnabled && (
+                                            <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
+                                                <div className="flex items-center justify-between">
+                                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none">LeetCode Session Cookie</label>
+                                                    <button
+                                                        onClick={() => setShowHelp(!showHelp)}
+                                                        className="text-[10px] text-sky-400 font-bold hover:underline"
+                                                    >
+                                                        {showHelp ? 'Hide Guide' : 'How to find it?'}
+                                                    </button>
+                                                </div>
+
+                                                {showHelp && (
+                                                    <div className="p-4 bg-sky-500/5 border border-sky-500/20 rounded-xl space-y-3 animate-in zoom-in-95 duration-200">
+                                                        <h5 className="text-xs font-bold text-sky-400">Quick Guide:</h5>
+                                                        <ul className="text-[10px] text-gray-400 space-y-2 list-decimal ml-4 font-medium">
+                                                            <li>Login to <a href="https://leetcode.com" target="_blank" rel="noreferrer" className="text-white hover:underline">leetcode.com</a>.</li>
+                                                            <li>Press <span className="bg-white/10 px-1 rounded text-white font-mono text-[9px]">F12</span> or <span className="text-white">Inspect</span>.</li>
+                                                            <li>Go to <span className="text-white font-bold text-[9px]">Application</span> {'>'} <span className="text-white font-bold text-[9px]">Cookies</span>.</li>
+                                                            <li>Copy the value of <span className="text-sky-400 font-bold text-[9px]">LEETCODE_SESSION</span>.</li>
+                                                        </ul>
+                                                    </div>
+                                                )}
+                                                <input
+                                                    type="password"
+                                                    value={settings.leetcodeSession}
+                                                    onChange={(e) => setSettings({ ...settings, leetcodeSession: e.target.value })}
+                                                    placeholder="Paste LEETCODE_SESSION value here..."
+                                                    className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-2 text-xs text-white focus:border-sky-500/50 outline-none"
+                                                />
+
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </section>
 

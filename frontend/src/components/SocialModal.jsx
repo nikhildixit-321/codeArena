@@ -77,24 +77,24 @@ const SocialModal = ({ isOpen, onClose, initialTab = 'friends' }) => {
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-100 flex items-center justify-center p-4 md:p-6">
+        <div className="fixed inset-0 z-99 flex items-center justify-center p-2 md:p-6 overflow-hidden">
             <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={onClose}></div>
 
-            <div className="relative w-full max-w-2xl bg-[#0a0a0f] border border-white/10 rounded-3xl shadow-2xl flex flex-col overflow-hidden h-[600px] animate-in zoom-in-95 duration-200">
+            <div className="relative w-full max-w-2xl bg-[#0a0a0f] border border-white/10 rounded-2xl md:rounded-3xl shadow-2xl flex flex-col overflow-hidden max-h-[90vh] md:h-[600px] animate-in zoom-in-95 duration-200">
 
                 {/* Header */}
-                <div className="p-6 border-b border-white/5 flex items-center justify-between">
+                <div className="p-4 md:p-6 border-b border-white/5 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="p-2 bg-sky-500/10 rounded-xl text-sky-400">
-                            <Users size={20} />
+                            <Users size={18} md:size={20} />
                         </div>
                         <div>
-                            <h2 className="text-xl font-black text-white uppercase tracking-tight">Social Portal</h2>
-                            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest leading-none">Connect with Coders</p>
+                            <h2 className="text-lg md:text-xl font-black text-white uppercase tracking-tight">Social Portal</h2>
+                            <p className="text-[9px] md:text-[10px] text-gray-500 font-bold uppercase tracking-widest leading-none">Connect with Coders</p>
                         </div>
                     </div>
                     <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-full text-gray-500 hover:text-white transition-colors">
-                        <X size={24} />
+                        <X size={20} md:size={24} />
                     </button>
                 </div>
 
@@ -126,24 +126,24 @@ const SocialModal = ({ isOpen, onClose, initialTab = 'friends' }) => {
                     {/* SEARCH TAB */}
                     {activeTab === 'search' && (
                         <div className="space-y-6">
-                            <div className="flex gap-2">
+                            <div className="flex flex-col md:flex-row gap-2">
                                 <div className="relative flex-1">
-                                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
+                                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
                                     <input
                                         type="text"
                                         placeholder="Search by username..."
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
                                         onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                                        className="w-full bg-[#050505] border border-white/10 rounded-2xl py-3 pl-12 pr-4 text-sm text-white focus:outline-none focus:border-sky-500/50 transition-all"
+                                        className="w-full bg-[#050505] border border-white/10 rounded-xl md:rounded-2xl py-2.5 md:py-3 pl-10 md:pl-12 pr-4 text-xs md:text-sm text-white focus:outline-none focus:border-sky-500/50 transition-all"
                                     />
                                 </div>
                                 <button
                                     onClick={handleSearch}
                                     disabled={loading}
-                                    className="bg-sky-500 hover:bg-sky-400 text-black px-6 rounded-2xl font-bold text-sm transition-all flex items-center gap-2"
+                                    className="bg-sky-500 hover:bg-sky-400 text-black px-6 py-2.5 md:py-0 rounded-xl md:rounded-2xl font-bold text-xs md:text-sm transition-all flex items-center justify-center gap-2"
                                 >
-                                    {loading ? <Loader2 size={18} className="animate-spin" /> : <Search size={18} />}
+                                    {loading ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
                                     <span>Search</span>
                                 </button>
                             </div>

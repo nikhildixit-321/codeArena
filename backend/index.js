@@ -81,6 +81,7 @@ app.get('/', (req, res) => {
 });
 
 const { executeCode } = require('./utils/judge');
+const { submitToLeetCode } = require('./utils/leetcode');
 const Match = require('./models/Match');
 const Question = require('./models/Question');
 const User = require('./models/User');
@@ -316,6 +317,23 @@ io.on('connection', (socket) => {
       if (judgment.allPassed) {
         match.players[playerIndex].status = 'finished';
         match.players[playerIndex].score = 100; // Correct
+
+        // --- NEW: Auto-submit to LeetCode ---
+        const userObj = await User.findById(userId);
+        if (userObj.settings?.autoSubmitEnabled && userObj.settings?.leetcodeSession && match.question.leetcodeSlug) {
+          console.log(`Auto-submitting to LeetCode for user ${userObj.username}...`);
+          try {
+            submitToLeetCode(
+              userObj.settings.leetcodeSession,
+              match.question.leetcodeSlug,
+              match.question.leetcodeId,
+              language || 'javascript',
+              code
+            ).catch(err => console.error("Auto-submit background failure:", err.message));
+          } catch (err) {
+            console.error("Auto-submit initiation failed:", err.message);
+          }
+        }
       } else {
         match.players[playerIndex].status = 'finished';
         match.players[playerIndex].score = 0; // Wrong
