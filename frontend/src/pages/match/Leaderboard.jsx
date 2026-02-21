@@ -3,6 +3,7 @@ import { Trophy, User, Activity, Search } from 'lucide-react';
 import api from '../../api/axios';
 import MainLayout from '../../components/MainLayout';
 import HomeNavbar from '../../components/Navbar';
+import { formatAvatarUrl } from '../../utils/formatters';
 
 const Leaderboard = () => {
     const [leaderboard, setLeaderboard] = useState([]);
@@ -17,7 +18,11 @@ const Leaderboard = () => {
         setLoading(true);
         try {
             const res = await api.get('/match/leaderboard');
-            setLeaderboard(res.data);
+            const data = res.data.map(player => ({
+                ...player,
+                avatar: formatAvatarUrl(player.avatar)
+            }));
+            setLeaderboard(data);
         } catch (err) {
             console.error("Error fetching leaderboard:", err);
         } finally {

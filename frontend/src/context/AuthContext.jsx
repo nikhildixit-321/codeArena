@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import api from '../api/axios';
+import { formatAvatarUrl } from '../utils/formatters';
 
 const AuthContext = createContext();
 
@@ -20,7 +21,11 @@ export const AuthProvider = ({ children }) => {
         return;
       }
       const res = await api.get('/auth/me');
-      setUser(res.data);
+      const userData = res.data;
+      if (userData.avatar) {
+        userData.avatar = formatAvatarUrl(userData.avatar);
+      }
+      setUser(userData);
     } catch (err) {
       console.error('Auth check failed:', err);
       setUser(null);
@@ -35,7 +40,11 @@ export const AuthProvider = ({ children }) => {
     if (res.data.token) {
       localStorage.setItem('token', res.data.token);
     }
-    setUser(res.data.user);
+    const userData = res.data.user;
+    if (userData.avatar) {
+      userData.avatar = formatAvatarUrl(userData.avatar);
+    }
+    setUser(userData);
     return res.data;
   };
 
