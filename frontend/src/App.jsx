@@ -18,12 +18,12 @@ const AuthOverlay = () => {
   const [view, setView] = useState('login'); // 'login' or 'register'
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#0d1117] text-white italic">Loading Arena...</div>;
-  
+
   if (user) return <Navigate to="/dashboard" />;
 
   return (
     <div className="relative min-h-screen bg-[#0d1117] overflow-hidden">
-     
+
       {/* Blurred Background Home */}
       <div className="absolute inset-0 blur-sm scale-105 opacity-50 pointer-events-none">
         <Home />
@@ -58,7 +58,8 @@ export default function App() {
             <Route path="/" element={<AuthOverlay />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/dashboard" element={<PrivateRoute><Home /></PrivateRoute>} />
-            <Route path="/practice" element={<PrivateRoute><PracticeHome /></PrivateRoute>} />
+            <Route path="/practice" element={<PrivateRoute><PracticeArena /></PrivateRoute>} />
+            <Route path="/practice/:platform" element={<PrivateRoute><PracticeArena /></PrivateRoute>} />
             <Route path="/practice/arena" element={<PrivateRoute><PracticeArena /></PrivateRoute>} />
             <Route path="/ide" element={<PrivateRoute><IDE /></PrivateRoute>} />
             <Route path="/matchmaking" element={<PrivateRoute><Matchmaking /></PrivateRoute>} />
