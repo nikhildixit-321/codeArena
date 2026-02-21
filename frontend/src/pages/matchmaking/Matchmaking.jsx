@@ -52,7 +52,6 @@ const MatchmakingContent = () => {
     return () => {
       socket.off('waiting');
       socket.off('matchFound');
-      socket.disconnect();
       clearInterval(timer);
     };
   }, [user, navigate]);

@@ -100,9 +100,27 @@ io.on('connection', (socket) => {
     console.log(`User identified: ${userId} (${socket.id}) with rating ${rating}`);
   });
 
-  socket.on('joinMatchRoom', ({ matchId }) => {
-    socket.join(`match_${matchId}`);
-    console.log(`Socket ${socket.id} joined match room: match_${matchId}`);
+  socket.on('joinMatchRoom', async ({ matchId }) => {
+    try {
+      socket.join(`match_${matchId}`);
+      console.log(`Socket ${socket.id} joined match room: match_${matchId}`);
+
+      // Update the match document with the new socketId to prevent accidental disconnect penalties
+      const match = await Match.findById(matchId);
+      if (match && match.status === 'active') {
+        const userId = socket.data.userId;
+        if (userId) {
+          const playerIndex = match.players.findIndex(p => p.user.toString() === userId.toString());
+          if (playerIndex !== -1) {
+            match.players[playerIndex].socketId = socket.id;
+            await match.save();
+            console.log(`Updated socketId for player ${userId} in match ${matchId}`);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('joinMatchRoom error:', err);
+    }
   });
 
   socket.on('joinQueue', async ({ userId }) => {
@@ -377,8 +395,17 @@ io.on('connection', (socket) => {
         }
 
         await match.save();
-        io.to(match.players[0].socketId).emit('matchEnded', { winner: winnerId, judgment });
-        io.to(match.players[1].socketId).emit('matchEnded', { winner: winnerId, judgment });
+        const opponentId = match.players.find(p => p.user.toString() !== userId.toString()).user;
+        const ratingChanges = winnerId ? [
+          { userId: winnerId, change: 20 },
+          { userId: winnerId.toString() === match.players[0].user.toString() ? match.players[1].user : match.players[0].user, change: -12 }
+        ] : [];
+
+        io.to(`match_${matchId}`).emit('matchEnded', {
+          winner: winnerId,
+          judgment,
+          ratingChanges
+        });
       } else {
         await match.save();
         socket.emit('submissionResult', { judgment });
@@ -402,15 +429,36 @@ io.on('connection', (socket) => {
       // Aborting user loses 20 points
       const user = await User.findById(userId);
       if (user) {
-        user.rating -= 20;
+        user.rating = Math.max(0, user.rating - 20);
+        user.matchesPlayed += 1;
         await user.save();
       }
 
+      // Opponent wins and gets 20 points
+      const winnerPlayer = match.players.find(p => p.user.toString() !== userId.toString());
+      if (winnerPlayer) {
+        const winnerUser = await User.findById(winnerPlayer.user);
+        if (winnerUser) {
+          winnerUser.rating += 20;
+          winnerUser.matchesPlayed += 1;
+          winnerUser.matchesWon += 1;
+          await winnerUser.save();
+        }
+      }
+
       match.status = 'completed';
-      match.winner = match.players.find(p => p.user.toString() !== userId.toString()).user; // Opponent wins
+      match.winner = winnerPlayer?.user; // Opponent wins
+      match.endTime = new Date();
       await match.save();
 
-      io.to(`match_${matchId}`).emit('matchAborted', { abortedBy: userId, message: 'Opponent aborted.' });
+      io.to(`match_${matchId}`).emit('matchAborted', {
+        abortedBy: userId,
+        message: 'Opponent aborted.',
+        ratingChanges: [
+          { userId, change: -20 },
+          { userId: winnerPlayer?.user, change: 20 }
+        ]
+      });
 
     } catch (err) {
       console.error('Abort Error:', err);
@@ -429,29 +477,61 @@ io.on('connection', (socket) => {
       });
 
       if (activeMatch) {
-        const player = activeMatch.players.find(p => p.socketId === socket.id);
-        const opponent = activeMatch.players.find(p => p.socketId !== socket.id);
+        const userId = socket.data.userId;
+        console.log(`User ${userId} disconnected during active match ${activeMatch._id}. Waiting for grace period...`);
 
-        if (player && opponent) {
-          // Penalize the disconnected player
-          const user = await User.findById(player.user);
-          if (user) {
-            user.rating = Math.max(0, user.rating - 20);
-            await user.save();
+        // 5-second grace period for reconnection
+        setTimeout(async () => {
+          const currentMatch = await Match.findById(activeMatch._id);
+          if (!currentMatch || currentMatch.status !== 'active') return;
+
+          const player = currentMatch.players.find(p => p.user.toString() === userId?.toString());
+
+          // If the player's socketId is still the old one, it means they haven't reconnected
+          if (player && player.socketId === socket.id) {
+            console.log(`Grace period expired for user ${userId}. Ending match.`);
+
+            const opponentPlayer = currentMatch.players.find(p => p.user.toString() !== userId?.toString());
+
+            // Penalize the disconnected player
+            const user = await User.findById(player.user);
+            if (user) {
+              user.rating = Math.max(0, user.rating - 20);
+              user.matchesPlayed += 1;
+              await user.save();
+            }
+
+            // Award win to opponent
+            if (opponentPlayer) {
+              const winnerUser = await User.findById(opponentPlayer.user);
+              if (winnerUser) {
+                winnerUser.rating += 20;
+                winnerUser.matchesPlayed += 1;
+                winnerUser.matchesWon += 1;
+                await winnerUser.save();
+              }
+            }
+
+            // Complete match
+            currentMatch.status = 'completed';
+            currentMatch.winner = opponentPlayer?.user;
+            currentMatch.endTime = new Date();
+            await currentMatch.save();
+
+            // Notify opponent
+            io.to(`match_${currentMatch._id}`).emit('matchEnded', {
+              winner: opponentPlayer?.user,
+              winnerId: opponentPlayer?.user,
+              reason: 'Opponent disconnected',
+              ratingChanges: [
+                { userId: player.user, change: -20 },
+                { userId: opponentPlayer?.user, change: 20 }
+              ]
+            });
+          } else {
+            console.log(`User ${userId} reconnected within grace period. Match continues.`);
           }
-
-          // Complete match and award win to opponent
-          activeMatch.status = 'completed';
-          activeMatch.winner = opponent.user;
-          activeMatch.endTime = new Date();
-          await activeMatch.save();
-
-          // Notify opponent
-          io.to(`match_${activeMatch._id}`).emit('matchAborted', {
-            abortedBy: player.user,
-            message: 'Opponent disconnected from the arena.'
-          });
-        }
+        }, 5000);
       }
     } catch (err) {
       console.error('Disconnect match cleanup error:', err);

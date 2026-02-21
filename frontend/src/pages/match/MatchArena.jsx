@@ -15,7 +15,7 @@ const MatchArena = () => {
   const { matchId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, checkUser } = useAuth();
 
   // Mock data fallback if direct navigation
   const [matchData, setMatchData] = useState(location.state?.matchData || {
@@ -158,10 +158,12 @@ class Solution {
 
     socket.on('matchEnded', (data) => {
       setMatchEnded(data);
+      if (checkUser) checkUser();
     });
 
     socket.on('matchAborted', (data) => {
       setMatchEnded({ ...data, aborted: true, winner: data.abortedBy === user._id ? null : user._id });
+      if (checkUser) checkUser();
     });
 
     const timer = setInterval(() => {
@@ -245,7 +247,13 @@ class Solution {
             <div className="text-center">
               <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1 font-bold">Rating</p>
               <p className="font-black text-2xl text-white flex items-center gap-1">
-                {isWinner ? '+' : ''}{isWinner ? '25' : '-18'}
+                {(() => {
+                  const myChange = matchEnded.ratingChanges?.find(r => r.userId === user?._id)?.change;
+                  if (myChange !== undefined) {
+                    return (myChange > 0 ? '+' : '') + myChange;
+                  }
+                  return isWinner ? '+20' : '-12';
+                })()}
                 <Zap size={16} className={isWinner ? 'text-yellow-400 fill-yellow-400' : 'text-gray-600'} />
               </p>
             </div>
