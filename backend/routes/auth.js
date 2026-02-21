@@ -193,4 +193,54 @@ router.post('/avatar', authenticateToken, (req, res) => {
   });
 });
 
+// Update Settings
+router.post('/settings', authenticateToken, async (req, res) => {
+  try {
+    const { settings } = req.body;
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { $set: { settings } },
+      { new: true }
+    ).select('-password');
+
+    res.json({ message: 'Settings updated successfully', settings: user.settings });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Change Password
+router.post('/change-password', authenticateToken, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const user = await User.findById(req.user.id);
+
+    if (!user.password) {
+      return res.status(400).json({ message: 'Social login users cannot change password this way' });
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Incorrect current password' });
+    }
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    await user.save();
+
+    res.json({ message: 'Password updated successfully' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Delete Account
+router.delete('/account', authenticateToken, async (req, res) => {
+  try {
+    await User.findByIdAndDelete(req.user.id);
+    res.json({ message: 'Account deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 module.exports = router;
