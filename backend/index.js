@@ -8,6 +8,7 @@ const passport = require('passport');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const morgan = require('morgan');
+const compression = require('compression');
 const http = require('http');
 const { Server } = require('socket.io');
 require('./config/passport');
@@ -16,6 +17,7 @@ const questionRoutes = require('./routes/questions');
 const executeRoutes = require('./routes/execute');
 
 const app = express();
+app.use(compression());
 const server = http.createServer(app);
 const allowedOrigins = process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',') : ['http://localhost:5173'];
 
