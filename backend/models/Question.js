@@ -9,6 +9,12 @@ const QuestionSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  examples: [{
+    input: String,
+    output: String,
+    explanation: String
+  }],
+  constraints: [String],
   difficulty: {
     type: String, // Easy, Medium, Hard
     required: true
@@ -21,10 +27,13 @@ const QuestionSchema = new mongoose.Schema({
     type: String, // Codeforces, LeetCode
     required: true
   },
+  officialLink: String,
   testCases: [{
     input: String,
-    output: String
+    output: String,
+    isHidden: { type: Boolean, default: false }
   }],
+  hints: [String],
   timeLimit: {
     type: Number, // in seconds
     default: 1

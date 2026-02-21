@@ -88,6 +88,18 @@ let waitingQueue = [];
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
 
+  // Identity event to track user data on socket
+  socket.on('identify', ({ userId, rating }) => {
+    socket.data.userId = userId;
+    socket.data.rating = rating;
+    console.log(`User identified: ${userId} (${socket.id}) with rating ${rating}`);
+  });
+
+  socket.on('joinMatchRoom', ({ matchId }) => {
+    socket.join(`match_${matchId}`);
+    console.log(`Socket ${socket.id} joined match room: match_${matchId}`);
+  });
+
   socket.on('joinQueue', async ({ userId }) => {
     try {
       const user = await User.findById(userId);
@@ -100,6 +112,10 @@ io.on('connection', (socket) => {
         username: user.username
       };
 
+      // Update socket data if not already set
+      socket.data.userId = user._id;
+      socket.data.rating = user.rating;
+
       // Check if user is already in queue
       if (waitingQueue.find(p => p.userId.toString() === userId.toString())) return;
 
@@ -110,8 +126,17 @@ io.on('connection', (socket) => {
         // Remove opponent from queue
         waitingQueue = waitingQueue.filter(p => p.userId.toString() !== opponent.userId.toString());
 
-        // Select random question for the match
-        const question = await Question.findOne().skip(Math.floor(Math.random() * await Question.countDocuments()));
+        // Targeted Question: Find a question close to the average rating of both players
+        const avgRating = (user.rating + (opponent.rating || 600)) / 2;
+        const potentialQuestions = await Question.find({
+          rating: { $gte: avgRating - 300, $lte: avgRating + 300 }
+        });
+
+        const question = potentialQuestions.length > 0
+          ? potentialQuestions[Math.floor(Math.random() * potentialQuestions.length)]
+          : await Question.findOne().skip(Math.floor(Math.random() * await Question.countDocuments()));
+
+        const duration = question.timeLimit || (question.difficulty === 'Hard' ? 45 * 60 : question.difficulty === 'Medium' ? 25 * 60 : 15 * 60);
 
         // Create match
         const newMatch = await Match.create({
@@ -124,74 +149,59 @@ io.on('connection', (socket) => {
           startTime: new Date()
         });
 
-        const matchData = {
+        const matchDataBase = {
           matchId: newMatch._id,
           question,
-          opponent: { username: opponent.username, rating: opponent.rating },
-          duration: question.timeLimit || (question.difficulty === 'Hard' ? 45 * 60 : question.difficulty === 'Medium' ? 25 * 60 : 15 * 60)
+          duration
         };
 
-        const matchDataOpponent = {
-          matchId: newMatch._id,
-          question,
-          opponent: { username: user.username, rating: user.rating },
-          duration: question.timeLimit || (question.difficulty === 'Hard' ? 45 * 60 : question.difficulty === 'Medium' ? 25 * 60 : 15 * 60)
-        };
+        io.to(opponent.socketId).emit('matchFound', {
+          ...matchDataBase,
+          opponent: { username: user.username, rating: user.rating }
+        });
+        io.to(socket.id).emit('matchFound', {
+          ...matchDataBase,
+          opponent: { username: opponent.username, rating: opponent.rating }
+        });
 
-        io.to(opponent.socketId).emit('matchFound', matchDataOpponent);
-        io.to(socket.id).emit('matchFound', matchData);
+        // Server-side Match Auto-Ending
+        setTimeout(async () => {
+          const m = await Match.findById(newMatch._id);
+          if (m && m.status === 'active') {
+            m.status = 'completed';
+            m.endTime = new Date();
+            await m.save();
+            io.to(`match_${newMatch._id}`).emit('matchEnded', {
+              reason: 'Time expired',
+              winner: null
+            });
+          }
+        }, duration * 1000);
       } else {
         waitingQueue.push(player);
         socket.emit('waiting', { message: 'Searching for opponent...' });
 
-        // Broadcast to all other connected users that a challenger is waiting
-        // Filter by rank: Only notify users within +/- 150 rating range
+        // Targeted Notification: Only notify users within +/- 150 rating range
         const sockets = await io.fetchSockets();
+        const challengerRating = user.rating !== undefined ? user.rating : 600;
+
         for (const s of sockets) {
-          // We need a way to know the socket's user rating. 
-          // We can store it in the socket object itself when they join or track it in a map.
-          // For now, let's assume we broadcasting to everyone but the frontend filters it? 
-          // Better: Store rating on socket object or use a simple loop if we have the data.
-          // Since we don't have a global socket->user map easily accessible here without state, 
-          // we will emit to all, and the client/frontend should verify if it's relevant?
-          // NO, the user explicitly asked to "notification bhi unhi user ko jaiyegi" (notification goes to THOSE users).
-          // So we must filter server-side or use rooms like `room_rating_600`.
+          // Skip if same socket or same user
+          if (s.id === socket.id) continue;
+          if (s.data.userId?.toString() === user._id.toString()) continue;
 
-          // Simpler approach for this codebase: 
-          // We'll iterate the waitingQueue? No, the other users aren't in queue.
-          // We will emit a general event, but we can't easily filter without user data on every socket.
-          // Let's IMPROVE: When users connect, or auth, we could join them to a generic 'online' room, 
-          // but we don't have their rating there easily.
-          // ALTERNATIVE: Use `socket.data` if we had middleware.
+          const targetRating = s.data.rating !== undefined ? s.data.rating : 600;
+          const ratingDiff = Math.abs(challengerRating - targetRating);
 
-          // LET'S IMPLEMENT: Broadcast to everyone, but include target info. 
-          // Wait, "notification bhi unhi user ko jaigi". Ideally server filtering.
-          // Let's try to do it by iterating all sockets if possible, or room based.
-          // Since we don't track all online users in a map in this file, we will broadcast with a "ratingRange"
-          // and let the CLIENT filter it for display? 
-          // The prompt implies "sent to", i.e., network traffic.
-          // Ideally: `io.to('rating_1200').emit(...)`
-
-          // For now, to keep it robust without refactoring the whole auth/socket flow:
-          // We will Broadcast to ALL, but the frontend component `ChallengeNotification` will check:
-          // `if (Math.abs(user.rating - challenger.rating) <= 150)` before showing.
-          // This achieves the visual goal. 
-          // To strictly achieve network goal, we'd need to Refactor `io.on('connection')` to store user rating on socket.
-
-          // Let's do a quick patch to store user data on socket on connection if possible?
-          // We only have `userId` in `joinQueue`. We don't have it on generic connect.
-          // So we can't strictly filter server-side for users NOT in queue yet (idle users).
-          // UNLESS we require an "identity" event on connect.
-
-          // DECISION: Broadcast to all, let Frontend filter. 
-          // Justification: Simple, effective for current scale.
-
-          socket.broadcast.emit('newChallenger', {
-            challengerId: user._id,
-            username: user.username,
-            rating: user.rating,
-            avatar: user.avatar
-          });
+          if (ratingDiff <= 150) {
+            console.log(`Sending challenge notification to socket ${s.id} (Rating: ${targetRating})`);
+            s.emit('newChallenger', {
+              challengerId: user._id,
+              username: user.username,
+              rating: user.rating,
+              avatar: user.avatar
+            });
+          }
         }
       }
     } catch (err) {
@@ -213,15 +223,15 @@ io.on('connection', (socket) => {
       // Remove challenger from queue
       waitingQueue = waitingQueue.filter(p => p.userId.toString() !== challengerId.toString());
 
-      // Select random question
-      const count = await Question.countDocuments();
-      if (count === 0) {
-        socket.emit('error', { message: 'No questions available in the system.' });
-        return;
-      }
+      // Targeted Question: Find a question close to the average rating of both players
+      const avgRating = (acceptorUser.rating + (challenger.rating || 600)) / 2;
+      const potentialQuestions = await Question.find({
+        rating: { $gte: avgRating - 300, $lte: avgRating + 300 }
+      });
 
-      const random = Math.floor(Math.random() * count);
-      const question = await Question.findOne().skip(random);
+      const question = potentialQuestions.length > 0
+        ? potentialQuestions[Math.floor(Math.random() * potentialQuestions.length)]
+        : await Question.findOne().skip(Math.floor(Math.random() * await Question.countDocuments()));
 
       if (!question) {
         socket.emit('error', { message: 'Failed to retrieve question.' });
@@ -246,30 +256,39 @@ io.on('connection', (socket) => {
       const matchRoom = `match_${newMatch._id}`;
       socket.join(matchRoom);
 
-      // Attempt to join challenger to room
       const challengerSocket = io.sockets.sockets.get(challenger.socketId);
       if (challengerSocket) {
         challengerSocket.join(matchRoom);
-      } else {
-        console.warn(`Challenger socket ${challenger.socketId} not found, they may have disconnected.`);
       }
 
-      const matchDataChallenger = {
+      const matchDataBase = {
         matchId: newMatch._id,
         question,
-        opponent: { username: acceptorUser.username, rating: acceptorUser.rating },
         duration
       };
 
-      const matchDataAcceptor = {
-        matchId: newMatch._id,
-        question,
-        opponent: { username: challenger.username, rating: challenger.rating },
-        duration
-      };
+      io.to(challenger.socketId).emit('matchFound', {
+        ...matchDataBase,
+        opponent: { username: acceptorUser.username, rating: acceptorUser.rating }
+      });
+      io.to(socket.id).emit('matchFound', {
+        ...matchDataBase,
+        opponent: { username: challenger.username, rating: challenger.rating }
+      });
 
-      io.to(challenger.socketId).emit('matchFound', matchDataChallenger);
-      io.to(socket.id).emit('matchFound', matchDataAcceptor);
+      // Server-side Match Auto-Ending
+      setTimeout(async () => {
+        const m = await Match.findById(newMatch._id);
+        if (m && m.status === 'active') {
+          m.status = 'completed';
+          m.endTime = new Date();
+          await m.save();
+          io.to(matchRoom).emit('matchEnded', {
+            reason: 'Time expired',
+            winner: null
+          });
+        }
+      }, duration * 1000);
 
     } catch (err) {
       console.error('Accept challenge error:', err);

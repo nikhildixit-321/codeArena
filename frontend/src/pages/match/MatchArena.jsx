@@ -122,10 +122,9 @@ class Solution {
 
     if (!socket.connected) socket.connect();
 
-    // Re-sync duration if it came late or from socket update (optional, but good practice)
+    // Re-sync duration if it came late or from socket update
     if (matchData.duration && timeLeft === 600) {
-      // Only set if we haven't fetched real time yet
-      // setTimeLeft(matchData.duration);
+      setTimeLeft(matchData.duration);
     }
 
     // Join room just in case
@@ -196,7 +195,7 @@ class Solution {
     return (
       <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center p-4 overflow-hidden relative">
         {/* Victory/Defeat Backgrounds */}
-        <div className={`absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] ${isWinner ? 'from-green-900/40 via-[#050505] to-[#050505]' : 'from-red-900/40 via-[#050505] to-[#050505]'}`}></div>
+        <div className={`absolute inset-0 bg-[radial-gradient(ellipse_at_center,var(--tw-gradient-stops))] ${isWinner ? 'from-green-900/40 via-[#050505] to-[#050505]' : 'from-red-900/40 via-[#050505] to-[#050505]'}`}></div>
         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
 
         <div className="relative z-10 bg-[#0a0a0f] border border-white/10 p-12 rounded-3xl flex flex-col items-center max-w-lg w-full text-center shadow-2xl animate-in zoom-in-95 duration-500">
@@ -204,7 +203,7 @@ class Solution {
             <Trophy size={80} className={isWinner ? 'animate-bounce' : 'opacity-70'} />
           </div>
 
-          <h2 className={`text-6xl font-black mb-4 bg-clip-text text-transparent ${isWinner ? 'bg-gradient-to-b from-white to-green-400' : 'bg-gradient-to-b from-white to-red-400'} uppercase tracking-tighter`}>
+          <h2 className={`text-6xl font-black mb-4 bg-clip-text text-transparent ${isWinner ? 'bg-linear-to-b from-white to-green-400' : 'bg-linear-to-b from-white to-red-400'} uppercase tracking-tighter`}>
             {isWinner ? 'Victory' : 'Defeat'}
           </h2>
 
@@ -259,7 +258,7 @@ class Solution {
           </Link>
           <div className="h-6 w-px bg-white/10"></div>
           <div className="flex items-center gap-2">
-            <div className="bg-gradient-to-br from-red-500 to-orange-600 w-8 h-8 rounded-lg flex items-center justify-center shadow-lg shadow-orange-500/20">
+            <div className="bg-linear-to-br from-red-500 to-orange-600 w-8 h-8 rounded-lg flex items-center justify-center shadow-lg shadow-orange-500/20">
               <Swords size={16} className="text-white" />
             </div>
             <div>
@@ -275,10 +274,10 @@ class Solution {
           <div className="flex items-center gap-4 opacity-100 transition-opacity">
             <div className="text-right hidden md:block">
               <div className="font-bold text-sm text-white">{user?.username || 'Hero_01'}</div>
-              <div className="text-[10px] text-sky-400 font-bold">1240 ELO</div>
+              <div className="text-[10px] text-sky-400 font-bold">{user?.rating || 600} ELO</div>
             </div>
-            <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-sky-500 to-blue-600 p-[2px]">
-              <div className="w-full h-full rounded-full bg-[#0a0a0f] flex items-center justify-center">
+            <div className="w-10 h-10 rounded-full bg-linear-to-tr from-sky-500 to-blue-600 p-[2px]">
+              <div className="w-full h-full rounded-full bg-[#0a0a0f] flex items-center justify-center border border-white/10">
                 <span className="text-sky-400 font-bold text-xs">ME</span>
               </div>
             </div>
@@ -292,7 +291,7 @@ class Solution {
 
           {/* Player 2 (Opponent) */}
           <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-red-500 to-orange-600 p-[2px] relative">
+            <div className="w-10 h-10 rounded-full bg-linear-to-tr from-red-500 to-orange-600 p-[2px] relative">
               <div className="w-full h-full rounded-full bg-[#0a0a0f] flex items-center justify-center">
                 <span className="text-red-400 font-bold text-xs">OP</span>
               </div>
@@ -304,9 +303,12 @@ class Solution {
             </div>
             <div className="text-left hidden md:block">
               <div className="font-bold text-sm text-white">{matchData.opponent?.username || 'Rival'}</div>
-              <div className={`text-[10px] font-bold ${opponentSubmitted ? 'text-green-500' : 'text-gray-500'}`}>
-                {opponentSubmitted ? 'SUBMITTED' : 'CODING...'}
-              </div>
+              <div className="text-[10px] text-red-500 font-bold">{matchData.opponent?.rating || 600} ELO</div>
+            </div>
+          </div>
+          <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 whitespace-nowrap">
+            <div className={`text-[10px] font-black tracking-widest px-2 py-0.5 rounded ${opponentSubmitted ? 'bg-green-500 text-black animate-pulse' : 'bg-white/5 text-gray-500'}`}>
+              {opponentSubmitted ? 'OPPONENT FINISHED' : 'DUEL IN PROGRESS'}
             </div>
           </div>
         </div>
@@ -364,31 +366,80 @@ class Solution {
                 </div>
 
                 <div className="prose prose-invert prose-sm max-w-none text-gray-300 leading-relaxed"
-                  dangerouslySetInnerHTML={{ __html: matchData.question?.description }}
+                  dangerouslySetInnerHTML={{ __html: matchData.question?.description || matchData.question?.content || 'No description available.' }}
                 >
                 </div>
 
-                {(matchData.question?.examples || matchData.question?.testCases?.slice(0, 2))?.map((ex, i) => (
-                  <div key={i} className="bg-[#121218] rounded-xl p-4 border border-white/5">
-                    <h4 className="text-xs font-bold text-gray-500 uppercase mb-2">Example {i + 1}</h4>
+                {/* Constraints Section */}
+                {matchData.question?.constraints && matchData.question.constraints.length > 0 && (
+                  <div className="space-y-3">
+                    <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest">Constraints</h3>
+                    <ul className="list-disc list-inside space-y-1">
+                      {matchData.question.constraints.map((c, i) => (
+                        <li key={i} className="text-xs text-gray-400 font-mono">{c}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Examples Section */}
+                {(matchData.question?.examples || matchData.question?.testCases?.filter(tc => !tc.isHidden).slice(0, 2)) && (
+                  <div className="mt-8 space-y-4">
+                    <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest">Examples</h3>
+                    {Array.isArray(matchData.question?.examples) ? (
+                      matchData.question.examples.map((ex, i) => (
+                        <div key={i} className="bg-[#121218] rounded-xl p-4 border border-white/5 space-y-2">
+                          <h4 className="text-[10px] font-bold text-sky-500 uppercase">Example {i + 1}</h4>
+                          <div className="space-y-2">
+                            <div>
+                              <span className="text-xs text-gray-500">Input:</span>
+                              <code className="block mt-1 bg-black p-2 rounded text-xs font-mono text-gray-300">{ex.input}</code>
+                            </div>
+                            <div>
+                              <span className="text-xs text-gray-500">Output:</span>
+                              <code className="block mt-1 bg-black p-2 rounded text-xs font-mono text-gray-300">{ex.output}</code>
+                            </div>
+                            {ex.explanation && (
+                              <div>
+                                <span className="text-xs text-gray-500 italic">Explanation:</span>
+                                <p className="mt-1 text-xs text-gray-400 leading-relaxed italic border-l-2 border-sky-500/20 pl-3">{ex.explanation}</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="bg-[#121218] rounded-xl p-4 border border-white/5">
+                        <pre className="text-xs font-mono text-gray-300 whitespace-pre-wrap">{matchData.question?.examples}</pre>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Hints Section */}
+                {matchData.question?.hints && matchData.question.hints.length > 0 && (
+                  <div className="bg-yellow-500/5 border border-yellow-500/20 p-4 rounded-xl space-y-3">
+                    <div className="flex items-center gap-2 text-yellow-500">
+                      <Lightbulb size={16} />
+                      <span className="text-xs font-bold uppercase tracking-wider">Hints</span>
+                    </div>
                     <div className="space-y-2">
-                      <div>
-                        <span className="text-xs text-gray-500">Input:</span>
-                        <code className="block mt-1 bg-black p-2 rounded text-xs font-mono text-gray-300">{ex.input}</code>
-                      </div>
-                      <div>
-                        <span className="text-xs text-gray-500">Output:</span>
-                        <code className="block mt-1 bg-black p-2 rounded text-xs font-mono text-gray-300">{ex.output}</code>
-                      </div>
+                      {matchData.question.hints.map((hint, i) => (
+                        <div key={i} className="flex gap-2">
+                          <span className="text-[10px] text-yellow-500 font-bold">{i + 1}.</span>
+                          <p className="text-xs text-yellow-400/80">{hint}</p>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                ))}
+                )}
 
+                {/* Legacy Alert/Caution */}
                 <div className="bg-blue-500/5 border border-blue-500/20 p-4 rounded-xl flex items-start gap-3">
                   <AlertCircle size={18} className="text-blue-400 shrink-0 mt-0.5" />
                   <div className="text-xs text-blue-300">
-                    <p className="font-bold mb-1">Constraint Warning</p>
-                    <p className="opacity-80">Ensure your solution runs within <span className="text-white font-mono">O(log(m + n))</span> time complexity.</p>
+                    <p className="font-bold mb-1">Combat Tip</p>
+                    <p className="opacity-80">Speed counts! Submit early to gain more points in case of a tie.</p>
                   </div>
                 </div>
               </div>

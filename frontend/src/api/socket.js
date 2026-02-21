@@ -5,7 +5,11 @@ const SOCKET_URL = API_URL.replace('/api', '');
 
 const socket = io(SOCKET_URL, {
   withCredentials: true,
-  autoConnect: false
+  autoConnect: false,
+  transports: ['websocket', 'polling'], // Prioritize websocket for stability in deployment
+  reconnection: true,
+  reconnectionAttempts: 5,
+  reconnectionDelay: 1000
 });
 
 export default socket;
