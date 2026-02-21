@@ -10,6 +10,7 @@ import {
   Users, PlayCircle
 } from 'lucide-react';
 import SocialModal from '../../components/SocialModal';
+import { formatAvatarUrl } from '../../utils/formatters';
 
 const DashboardContent = ({ isSocialOpen, setIsSocialOpen, onOpenSocial }) => {
   const { user } = useAuth();
@@ -42,7 +43,17 @@ const DashboardContent = ({ isSocialOpen, setIsSocialOpen, onOpenSocial }) => {
       try {
         // 2. Fetch Active Matches
         const liveRes = await api.get('/match/active');
-        setLiveMatches(liveRes.data);
+        const formattedMatches = liveRes.data.map(match => ({
+          ...match,
+          players: match.players.map(p => ({
+            ...p,
+            user: {
+              ...p.user,
+              avatar: formatAvatarUrl(p.user?.avatar)
+            }
+          }))
+        }));
+        setLiveMatches(formattedMatches);
 
         // 3. Fetch Daily Challenge
         const dailyRes = await api.get('/match/daily');

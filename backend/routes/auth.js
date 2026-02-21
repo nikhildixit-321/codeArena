@@ -182,7 +182,8 @@ router.post('/avatar', authenticateToken, (req, res) => {
         return res.status(400).json({ message: 'Please upload an image' });
       }
 
-      const avatarUrl = `${process.env.BACKEND_URL || 'http://localhost:5000'}/uploads/avatars/${req.file.filename}`;
+      const backendUrl = process.env.BACKEND_URL || 'http://localhost:5000';
+      const avatarUrl = `${backendUrl}/uploads/avatars/${req.file.filename}`;
 
       await User.findByIdAndUpdate(req.user.id, { avatar: avatarUrl });
 
