@@ -153,6 +153,10 @@ class Solution {
       setMatchEnded(data);
     });
 
+    socket.on('matchAborted', (data) => {
+      setMatchEnded({ ...data, aborted: true, winner: data.abortedBy === user._id ? null : user._id });
+    });
+
     const timer = setInterval(() => {
       setTimeLeft(t => (t > 0 ? t - 1 : 0));
     }, 1000);
@@ -164,6 +168,15 @@ class Solution {
       clearInterval(timer);
     };
   }, [matchId, user]); // Added deps
+
+  const handleAbort = async () => {
+    if (!matchEnded) {
+      const confirm = window.confirm("Are you sure you want to exit? This will count as a DEFEAT and you will lose rating points.");
+      if (!confirm) return;
+      socket.emit('abortMatch', { matchId, userId: user._id });
+    }
+    navigate('/dashboard');
+  };
 
   const handleSubmit = () => {
     // Simulate submission for UI demo if no backend connection
@@ -192,6 +205,8 @@ class Solution {
   // --- MATCH ENDED SCREEN ---
   if (matchEnded) {
     const isWinner = matchEnded.winner === (user?._id || 'me');
+    const isAborted = matchEnded.aborted;
+
     return (
       <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center p-4 overflow-hidden relative">
         {/* Victory/Defeat Backgrounds */}
@@ -200,12 +215,17 @@ class Solution {
 
         <div className="relative z-10 bg-[#0a0a0f] border border-white/10 p-12 rounded-3xl flex flex-col items-center max-w-lg w-full text-center shadow-2xl animate-in zoom-in-95 duration-500">
           <div className={`mb-8 p-8 rounded-full ${isWinner ? 'bg-green-500/10 text-green-500 shadow-[0_0_50px_rgba(34,197,94,0.3)]' : 'bg-red-500/10 text-red-500 shadow-[0_0_50px_rgba(239,68,68,0.3)]'} ring-1 ring-white/10`}>
-            <Trophy size={80} className={isWinner ? 'animate-bounce' : 'opacity-70'} />
+            {isWinner ? <Trophy size={80} className="animate-bounce" /> : <AlertCircle size={80} className="opacity-70" />}
           </div>
 
-          <h2 className={`text-6xl font-black mb-4 bg-clip-text text-transparent ${isWinner ? 'bg-linear-to-b from-white to-green-400' : 'bg-linear-to-b from-white to-red-400'} uppercase tracking-tighter`}>
+          <h2 className={`text-6xl font-black mb-2 bg-clip-text text-transparent ${isWinner ? 'bg-linear-to-b from-white to-green-400' : 'bg-linear-to-b from-white to-red-400'} uppercase tracking-tighter`}>
             {isWinner ? 'Victory' : 'Defeat'}
           </h2>
+          {isAborted && (
+            <p className="text-orange-500 text-xs font-black uppercase tracking-widest mb-4">
+              {matchEnded.abortedBy === user._id ? 'You abandoned the battle' : 'Opponent fled the arena'}
+            </p>
+          )}
 
           <div className="flex items-center gap-8 my-8 w-full justify-center bg-white/5 p-6 rounded-2xl border border-white/5">
             <div className="text-center">
@@ -252,10 +272,13 @@ class Solution {
 
         {/* Left: Brand & Exit */}
         <div className="flex items-center gap-6">
-          <Link to="/dashboard" className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors">
+          <button
+            onClick={handleAbort}
+            className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
+          >
             <ChevronLeft size={20} />
             <span className="font-bold text-sm">Exit Arena</span>
-          </Link>
+          </button>
           <div className="h-6 w-px bg-white/10"></div>
           <div className="flex items-center gap-2">
             <div className="bg-linear-to-br from-red-500 to-orange-600 w-8 h-8 rounded-lg flex items-center justify-center shadow-lg shadow-orange-500/20">
