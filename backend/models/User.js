@@ -48,7 +48,13 @@ const UserSchema = new mongoose.Schema({
   friendRequests: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
-  }]
+  }],
+  settings: {
+    notifications: { type: Boolean, default: true },
+    publicProfile: { type: Boolean, default: true },
+    soundEffects: { type: Boolean, default: true },
+    language: { type: String, default: 'English' }
+  }
 });
 
 module.exports = mongoose.model('User', UserSchema);

@@ -15,6 +15,7 @@ const MatchArena = lazy(() => import('./pages/match/MatchArena'));
 const Matchmaking = lazy(() => import('./pages/matchmaking/Matchmaking'));
 const Profile = lazy(() => import('./pages/profile/Profile'));
 const Leaderboard = lazy(() => import('./pages/match/Leaderboard'));
+const Settings = lazy(() => import('./pages/settings/Settings'));
 const AuthCallback = lazy(() => import('./pages/auth/AuthCallback'));
 
 const GlobalLoader = () => (
@@ -78,6 +79,7 @@ export default function App() {
               <Route path="/arena/:matchId" element={<PrivateRoute><MatchArena /></PrivateRoute>} />
               <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
               <Route path="/leaderboard" element={<PrivateRoute><Leaderboard /></PrivateRoute>} />
+              <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
               <Route path="*" element={<Navigate to="/" />} />
             </Routes>
           </Suspense>
