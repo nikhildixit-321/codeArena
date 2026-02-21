@@ -21,6 +21,7 @@ router.get('/search', auth, async (req, res) => {
         const results = users.map(u => {
             const isFriend = currentUser.friends.some(id => id.toString() === u._id.toString());
             const hasSentRequest = u.friendRequests.some(id => id.toString() === req.user.id);
+            const hasReceivedRequest = currentUser.friendRequests.some(id => id.toString() === u._id.toString());
 
             return {
                 _id: u._id,
@@ -28,7 +29,8 @@ router.get('/search', auth, async (req, res) => {
                 avatar: u.avatar,
                 rating: u.rating,
                 isFriend,
-                requested: hasSentRequest
+                requested: hasSentRequest,
+                received: hasReceivedRequest
             };
         });
 
@@ -54,11 +56,15 @@ router.post('/send-request/:userId', auth, async (req, res) => {
         if (!targetUser) return res.status(404).json({ message: 'User not found' });
 
         if (currentUser.friends.some(id => id.toString() === targetUserId)) {
-            return res.status(400).json({ message: 'Already friends' });
+            return res.status(400).json({ message: 'Already friends with this user' });
         }
 
         if (targetUser.friendRequests.some(id => id.toString() === senderId)) {
-            return res.status(400).json({ message: 'Request already sent' });
+            return res.status(400).json({ message: 'You have already sent a request to this user' });
+        }
+
+        if (currentUser.friendRequests.some(id => id.toString() === targetUserId)) {
+            return res.status(400).json({ message: 'This user has already sent you a request. Check your requests tab!' });
         }
 
         targetUser.friendRequests.push(senderId);
@@ -95,8 +101,8 @@ router.post('/accept-request/:userId', auth, async (req, res) => {
         user.friendRequests = user.friendRequests.filter(id => id.toString() !== senderId);
 
         // Add to friends for both
-        if (!user.friends.includes(senderId)) user.friends.push(senderId);
-        if (!sender.friends.includes(userId)) sender.friends.push(userId);
+        if (!user.friends.some(id => id.toString() === senderId)) user.friends.push(senderId);
+        if (!sender.friends.some(id => id.toString() === userId)) sender.friends.push(userId);
 
         await user.save();
         await sender.save();
