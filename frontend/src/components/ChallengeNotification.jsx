@@ -21,6 +21,14 @@ const ChallengeNotification = () => {
 
         const onConnect = () => {
             console.log('Socket Connected Successfully:', socket.id);
+            // Identify self to server for targeted notifications
+            if (user?._id) {
+                console.log('Identifying with rating:', user.rating || 600);
+                socket.emit('identify', {
+                    userId: user._id,
+                    rating: user.rating !== undefined ? user.rating : 600
+                });
+            }
         };
 
         const onConnectError = (err) => {
@@ -35,9 +43,14 @@ const ChallengeNotification = () => {
         socket.on('connect_error', onConnectError);
         socket.on('disconnect', onDisconnect);
 
+        // If already connected, identify immediately
+        if (socket.connected) {
+            onConnect();
+        }
+
         const handleNewChallenger = (data) => {
-            // Don't notify if I am the challenger (shouldn't happen with broadcast, but safety check)
-            if (data.challengerId === user._id) return;
+            // Don't notify if I am the challenger
+            if (data.challengerId === user?._id) return;
 
             // Filter by rating: user must be within 150 points of challenger
             const userRating = user.rating !== undefined ? user.rating : 600;
