@@ -164,12 +164,14 @@ const SocialModal = ({ isOpen, onClose, initialTab = 'friends' }) => {
                                         </div>
                                         <button
                                             onClick={() => sendRequest(u._id)}
-                                            disabled={actionLoading === u._id || u.requested || u.isFriend}
-                                            className={`p-2 rounded-xl transition-all ${u.requested ? 'bg-green-500/20 text-green-400' : u.isFriend ? 'bg-sky-500/20 text-sky-400' : 'bg-white/5 hover:bg-sky-500 hover:text-black text-gray-400'}`}
+                                            disabled={actionLoading === u._id || u.requested || u.isFriend || u.received}
+                                            className={`p-2 rounded-xl transition-all ${u.requested ? 'bg-green-500/20 text-green-400' : u.received ? 'bg-yellow-500/20 text-yellow-400' : u.isFriend ? 'bg-sky-500/20 text-sky-400' : 'bg-white/5 hover:bg-sky-500 hover:text-black text-gray-400'}`}
+                                            title={u.received ? "They already sent you a request" : ""}
                                         >
                                             {actionLoading === u._id ? <Loader2 size={18} className="animate-spin" /> :
                                                 u.requested ? <Check size={18} /> :
-                                                    u.isFriend ? <Users size={18} /> : <UserPlus size={18} />}
+                                                    u.received ? <Send size={18} /> : // Received but not accepted
+                                                        u.isFriend ? <Users size={18} /> : <UserPlus size={18} />}
                                         </button>
                                     </div>
                                 ))}
