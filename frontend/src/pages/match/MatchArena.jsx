@@ -75,6 +75,13 @@ class Solution {
   const [isTerminalOpen, setIsTerminalOpen] = useState(true);
   const [activeTab, setActiveTab] = useState('description');
   const [submissions, setSubmissions] = useState([]);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 1024);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     setCode(STARTER_CODE[language] || '// Write code here');
@@ -218,7 +225,7 @@ class Solution {
             {isWinner ? <Trophy size={80} className="animate-bounce" /> : <AlertCircle size={80} className="opacity-70" />}
           </div>
 
-          <h2 className={`text-6xl font-black mb-2 bg-clip-text text-transparent ${isWinner ? 'bg-linear-to-b from-white to-green-400' : 'bg-linear-to-b from-white to-red-400'} uppercase tracking-tighter`}>
+          <h2 className={`text-4xl md:text-6xl font-black mb-2 bg-clip-text text-transparent ${isWinner ? 'bg-linear-to-b from-white to-green-400' : 'bg-linear-to-b from-white to-red-400'} uppercase tracking-tighter`}>
             {isWinner ? 'Victory' : 'Defeat'}
           </h2>
           {isAborted && (
@@ -276,8 +283,8 @@ class Solution {
             onClick={handleAbort}
             className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
           >
-            <ChevronLeft size={20} />
-            <span className="font-bold text-sm">Exit Arena</span>
+            <ChevronLeft size={isMobile ? 18 : 20} />
+            <span className="font-bold text-xs md:text-sm">{isMobile ? '' : 'Exit Arena'}</span>
           </button>
           <div className="h-6 w-px bg-white/10"></div>
           <div className="flex items-center gap-2">
@@ -307,16 +314,19 @@ class Solution {
           </div>
 
           {/* Timer */}
-          <div className={`px-4 py-1.5 rounded-full border flex items-center gap-2 font-mono font-bold text-lg shadow-[0_0_20px_rgba(0,0,0,0.5)] ${timeLeft < 60 ? 'bg-red-500/10 border-red-500/50 text-red-500 animate-pulse' : 'bg-[#121218] border-white/10 text-gray-200'}`}>
-            <Timer size={16} />
+          <div className={`
+            px-3 py-1 md:px-4 md:py-1.5 rounded-full border flex items-center gap-2 font-mono font-bold text-sm md:text-lg shadow-lg
+            ${timeLeft < 60 ? 'bg-red-500/10 border-red-500/50 text-red-500 animate-pulse' : 'bg-[#121218] border-white/10 text-gray-200'}
+          `}>
+            <Timer size={isMobile ? 14 : 16} />
             {formatTime(timeLeft)}
           </div>
 
           {/* Player 2 (Opponent) */}
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-full bg-linear-to-tr from-red-500 to-orange-600 p-[2px] relative">
+          <div className="flex items-center gap-2 md:gap-4">
+            <div className={`w-8 h-8 md:w-10 md:h-10 rounded-full bg-linear-to-tr from-red-500 to-orange-600 p-[2px] relative`}>
               <div className="w-full h-full rounded-full bg-[#0a0a0f] flex items-center justify-center">
-                <span className="text-red-400 font-bold text-xs">OP</span>
+                <span className="text-red-400 font-bold text-[10px] md:text-xs">OP</span>
               </div>
               {opponentSubmitted && (
                 <div className="absolute -top-1 -right-1 bg-[#0a0a0f] rounded-full p-0.5">
@@ -337,28 +347,45 @@ class Solution {
         </div>
 
         {/* Right: Actions */}
-        <div className="flex items-center gap-3">
-          <button className="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
-            <Settings size={20} />
-          </button>
-          <button className="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
-            <Layout size={20} />
-          </button>
+        <div className="flex items-center gap-2 md:gap-3">
+          {!isMobile && (
+            <>
+              <button className="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
+                <Settings size={20} />
+              </button>
+              <button className="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
+                <Layout size={20} />
+              </button>
+            </>
+          )}
           <button
             onClick={handleSubmit}
-            className="group flex items-center gap-2 bg-white text-black hover:bg-gray-200 px-6 py-2.5 rounded-xl font-bold shadow-[0_0_20px_rgba(255,255,255,0.1)] transition-all hover:scale-105 active:scale-95 ml-2"
+            className="group flex items-center gap-2 bg-white text-black hover:bg-gray-200 px-4 py-2 md:px-6 md:py-2.5 rounded-xl font-bold transition-all hover:scale-105 active:scale-95 ml-1 md:ml-2 text-xs md:text-sm"
           >
-            <Send size={16} className="group-hover:translate-x-0.5 transition-transform" />
+            <Send size={14} className="group-hover:translate-x-0.5 transition-transform" />
             <span>SUBMIT</span>
           </button>
         </div>
       </header>
 
-      {/* 2. Main Workspace */}
-      <div className="flex-1 flex overflow-hidden">
+      {/* Mobile Tab Switcher */}
+      {isMobile && (
+        <div className="flex bg-[#0a0a0f] border-b border-white/5 relative z-20">
+          <button onClick={() => setActiveTab('description')} className={`flex-1 py-3 text-xs font-bold uppercase tracking-widest ${activeTab === 'description' ? 'text-sky-400 border-b-2 border-sky-500 bg-sky-500/5' : 'text-gray-500'}`}>Problem</button>
+          <button onClick={() => setActiveTab('editor')} className={`flex-1 py-3 text-xs font-bold uppercase tracking-widest ${activeTab === 'editor' ? 'text-sky-400 border-b-2 border-sky-500 bg-sky-500/5' : 'text-gray-500'}`}>Solve</button>
+          <button onClick={() => setActiveTab('submissions')} className={`flex-1 py-3 text-xs font-bold uppercase tracking-widest ${activeTab === 'submissions' ? 'text-sky-400 border-b-2 border-sky-500 bg-sky-500/5' : 'text-gray-500'}`}>Rival</button>
+        </div>
+      )}
 
-        {/* Left Panel: Problem Description */}
-        <div className="w-[400px] lg:w-[450px] bg-[#0a0a0f] border-r border-white/5 flex flex-col">
+      {/* 2. Main Workspace */}
+      <div className="flex-1 flex overflow-hidden relative">
+
+        {/* Left Panel: Problem Description - Hidden on mobile if not in Description tab */}
+        <div className={`
+          ${isMobile && activeTab !== 'description' && activeTab !== 'submissions' ? 'hidden' : 'flex'}
+          ${isMobile ? 'w-full fixed inset-0 z-10 pt-28 bg-[#0a0a0f]' : 'w-[400px] lg:w-[450px] border-r border-white/5'}
+          flex flex-col bg-[#0a0a0f]
+        `}>
           {/* Tabs */}
           <div className="flex border-b border-white/5">
             <button
@@ -493,8 +520,11 @@ class Solution {
           </div>
         </div>
 
-        {/* Center Panel: Editor */}
-        <div className="flex-1 flex flex-col min-w-0 bg-[#050505] relative">
+        {/* Center Panel: Editor - Hidden on mobile if not in Editor tab */}
+        <div className={`
+          flex-1 flex flex-col min-w-0 bg-[#050505] relative
+          ${isMobile && activeTab !== 'editor' ? 'hidden' : 'flex'}
+        `}>
           {/* Editor Toolbar */}
           <div className="h-10 border-b border-white/5 flex items-center justify-between px-4 bg-[#0a0a0f]">
             <div className="flex items-center gap-4">

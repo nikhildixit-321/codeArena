@@ -38,6 +38,14 @@ const IDE = () => {
   const [contextMenu, setContextMenu] = useState(null);
   const [terminalHeight, setTerminalHeight] = useState(240);
   const [sidebarWidth, setSidebarWidth] = useState(260);
+  const [activeTab, setActiveTab] = useState('editor'); // 'explorer', 'editor', 'terminal' (Mobile only)
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Theme Colors (Sky Blue / Neon Vibe)
   const activeFile = findFileById(files, activeFileId);
@@ -196,8 +204,8 @@ const IDE = () => {
       <div key={item.id}>
         <div
           className={`flex items-center gap-2 px-3 py-1.5 cursor-pointer transition-all border-l-2 ${activeFileId === item.id
-              ? 'bg-sky-500/10 border-sky-500 text-sky-400 font-medium'
-              : 'border-transparent text-gray-400 hover:bg-[#1f1f28] hover:text-gray-200'
+            ? 'bg-sky-500/10 border-sky-500 text-sky-400 font-medium'
+            : 'border-transparent text-gray-400 hover:bg-[#1f1f28] hover:text-gray-200'
             }`}
           style={{ paddingLeft: `${depth * 16 + 12}px` }}
           onClick={() => {
@@ -252,7 +260,7 @@ const IDE = () => {
           <button
             onClick={handleRun}
             disabled={isRunning || !activeFile}
-            className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white rounded-lg text-xs font-bold shadow-[0_0_15px_rgba(14,165,233,0.3)] hover:shadow-[0_0_25px_rgba(14,165,233,0.5)] transition-all disabled:opacity-50 disabled:cursor-not-allowed group"
+            className="flex items-center gap-2 px-5 py-2 bg-linear-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white rounded-lg text-xs font-bold shadow-[0_0_15px_rgba(14,165,233,0.3)] hover:shadow-[0_0_25px_rgba(14,165,233,0.5)] transition-all disabled:opacity-50 disabled:cursor-not-allowed group"
           >
             {isRunning ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} className="fill-current" />}
             {isRunning ? 'Compiling...' : 'Run Code'}
@@ -262,11 +270,20 @@ const IDE = () => {
     }>
       <div className="flex h-[calc(100vh-3.5rem)] bg-[#050505] overflow-hidden">
 
-        {/* 1. SIDEBAR (File Explorer) */}
+        {/* 1. SIDEBAR (File Explorer) - Hidden on mobile if not active */}
         <div
-          className="flex flex-col border-r border-white/5 bg-[#0a0a0f]"
-          style={{ width: sidebarWidth }}
+          className={`
+            ${isMobile && activeTab === 'explorer' ? 'flex fixed inset-0 z-40 bg-[#0a0a0f]' : (isMobile ? 'hidden' : 'flex')}
+            flex-col border-r border-white/5 bg-[#0a0a0f]
+          `}
+          style={{ width: isMobile ? '100%' : sidebarWidth }}
         >
+          {isMobile && (
+            <div className="p-4 flex items-center justify-between border-b border-white/5">
+              <span className="font-black text-sky-400">EXPLORER</span>
+              <button onClick={() => setActiveTab('editor')} className="p-2 bg-white/5 rounded-lg text-gray-400"><X size={18} /></button>
+            </div>
+          )}
           <div className="p-3 flex items-center justify-between text-xs font-bold text-gray-500 uppercase tracking-widest border-b border-white/5">
             <span className="flex items-center gap-2"><Folder size={14} /> Explorer</span>
             <div className="flex gap-1">
@@ -279,8 +296,11 @@ const IDE = () => {
           </div>
         </div>
 
-        {/* 2. MAIN EDITOR AREA */}
-        <div className="flex-1 flex flex-col min-w-0 bg-[#050505] relative">
+        {/* 2. MAIN EDITOR AREA - Visible if active or on desktop */}
+        <div className={`
+          flex-1 flex flex-col min-w-0 bg-[#050505] relative
+          ${isMobile && activeTab !== 'editor' ? 'hidden' : 'flex'}
+        `}>
 
           {/* Tabs Bar */}
           <div className="flex bg-[#0a0a0f] border-b border-white/5 overflow-x-auto no-scrollbar">
@@ -337,11 +357,20 @@ const IDE = () => {
             )}
           </div>
 
-          {/* 3. TERMINAL PANEL (Bottom) */}
+          {/* 3. TERMINAL PANEL (Bottom) - Toggleable on mobile/desktop */}
           <div
-            className="bg-[#0a0a0f] border-t border-white/5 flex flex-col transition-all duration-300 ease-in-out"
-            style={{ height: terminalHeight }}
+            className={`
+              bg-[#0a0a0f] border-t border-white/5 flex flex-col transition-all duration-300 ease-in-out
+              ${isMobile && activeTab === 'terminal' ? 'fixed inset-0 z-40 h-full!' : (isMobile ? 'hidden' : '')}
+            `}
+            style={{ height: isMobile && activeTab === 'terminal' ? '100%' : terminalHeight }}
           >
+            {isMobile && activeTab === 'terminal' && (
+              <div className="p-4 flex items-center justify-between border-b border-white/5 bg-[#0e0e12]">
+                <span className="font-black text-sky-400">TERMINAL</span>
+                <button onClick={() => setActiveTab('editor')} className="p-2 bg-white/5 rounded-lg text-gray-400"><X size={18} /></button>
+              </div>
+            )}
             {/* Terminal Header & Resizer */}
             <div
               className="h-9 flex items-center justify-between px-4 border-b border-white/5 bg-[#0e0e12] select-none cursor-row-resize"
@@ -388,6 +417,35 @@ const IDE = () => {
         </div>
       </div>
 
+      {/* 4. MOBILE BOTTOM NAVIGATION */}
+      {isMobile && (
+        <div className="fixed bottom-0 left-0 right-0 h-16 bg-[#0a0a0f] border-t border-white/10 flex items-center justify-around px-4 z-99">
+          <button
+            onClick={() => setActiveTab('explorer')}
+            className={`flex flex-col items-center gap-1 ${activeTab === 'explorer' ? 'text-sky-400' : 'text-gray-500'}`}
+          >
+            <Folder size={20} />
+            <span className="text-[10px] font-bold uppercase">Files</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('editor')}
+            className={`flex flex-col items-center gap-1 ${activeTab === 'editor' ? 'text-sky-400' : 'text-gray-500'}`}
+          >
+            <div className="p-2 bg-sky-500/20 rounded-full -mt-6 border-2 border-[#0a0a0f] text-sky-400 shadow-lg">
+              <Code2 size={24} />
+            </div>
+            <span className="text-[10px] font-bold uppercase mt-1">Editor</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('terminal')}
+            className={`flex flex-col items-center gap-1 ${activeTab === 'terminal' ? 'text-sky-400' : 'text-gray-500'}`}
+          >
+            <Terminal size={20} />
+            <span className="text-[10px] font-bold uppercase">Terminal</span>
+          </button>
+        </div>
+      )}
+
       {/* Modals & Context Menu reused logic */}
       {contextMenu && (
         <div
@@ -404,7 +462,7 @@ const IDE = () => {
 
       {/* Simple Modals for File/Folder creation (keeping functional logic same) */}
       {showNewFileModal && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm">
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/80 backdrop-blur-sm">
           <div className="bg-[#161b22] border border-white/10 p-6 rounded-2xl w-96 shadow-2xl">
             <h3 className="text-white font-bold mb-4 text-lg">New File</h3>
             <input autoFocus type="text" value={newItemName} onChange={(e) => setNewItemName(e.target.value)} placeholder="e.g., script.js" className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white text-sm mb-6 outline-none focus:border-sky-500/50 transition-colors" onKeyDown={(e) => e.key === 'Enter' && handleCreateFile()} />

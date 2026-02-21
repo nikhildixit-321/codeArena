@@ -56,14 +56,14 @@ const Leaderboard = () => {
                     </div>
 
                     {/* Simple Table */}
-                    <div className="bg-[#111114] border border-white/10 rounded-xl overflow-hidden shadow-lg">
-                        <table className="w-full text-left">
+                    <div className="bg-[#111114] border border-white/10 rounded-xl overflow-x-auto shadow-lg custom-scrollbar">
+                        <table className="w-full text-left min-w-[500px] md:min-w-0">
                             <thead className="bg-white/5 border-b border-white/10">
                                 <tr>
-                                    <th className="px-6 py-4 text-xs font-bold uppercase text-gray-400">Rank</th>
-                                    <th className="px-6 py-4 text-xs font-bold uppercase text-gray-400">User</th>
-                                    <th className="px-6 py-4 text-xs font-bold uppercase text-gray-400 text-center">Rating</th>
-                                    <th className="px-6 py-4 text-xs font-bold uppercase text-gray-400 text-center">Wins</th>
+                                    <th className="px-4 md:px-6 py-4 text-xs font-bold uppercase text-gray-400">Rank</th>
+                                    <th className="px-4 md:px-6 py-4 text-xs font-bold uppercase text-gray-400">User</th>
+                                    <th className="px-4 md:px-6 py-4 text-xs font-bold uppercase text-gray-400 text-center">Rating</th>
+                                    <th className="px-4 md:px-6 py-4 text-xs font-bold uppercase text-gray-400 text-center">Wins</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-white/5">
