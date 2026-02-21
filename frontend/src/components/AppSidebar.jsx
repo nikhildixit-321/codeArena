@@ -1,7 +1,7 @@
 import React from "react"
 import {
     Home, Swords, Terminal, User, Settings,
-    Trophy, Target, Zap, LogOut
+    Trophy, Target, Zap, LogOut, Hash
 } from "lucide-react"
 import { useLocation, Link, useNavigate } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
@@ -50,18 +50,25 @@ const groups = [
         label: "ARENA",
         items: [
             {
+                title: "LeetCode",
+                url: "/practice/leetcode",
+                icon: Hash,
+                color: "text-orange-500",
+                gradient: "from-orange-500/20 to-amber-600/5"
+            },
+            {
+                title: "Codeforces",
+                url: "/practice/codeforces",
+                icon: Target,
+                color: "text-emerald-400",
+                gradient: "from-emerald-500/20 to-green-600/5"
+            },
+            {
                 title: "Battle Ground",
                 url: "/matchmaking",
                 icon: Swords,
                 color: "text-rose-500",
                 gradient: "from-rose-500/20 to-red-600/5"
-            },
-            {
-                title: "Practice",
-                url: "/practice",
-                icon: Target,
-                color: "text-emerald-400",
-                gradient: "from-emerald-500/20 to-green-600/5"
             },
         ]
     },
@@ -94,14 +101,14 @@ export function AppSidebar() {
         <Sidebar collapsible="icon" className="border-r border-white/10 bg-[#09090b] text-gray-400 font-sans">
             {/* Logo / Brand Area */}
             <div className="h-16 flex items-center justify-center border-b border-white/5">
-                <div className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center w-full px-4 overflow-hidden">
-                    <div className="relative flex items-center justify-center w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 shadow-lg shadow-purple-500/20 shrink-0">
+                <Link to="/dashboard" className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center w-full px-4 overflow-hidden hover:opacity-80 transition-opacity">
+                    <div className="relative flex items-center justify-center w-8 h-8 rounded-xl bg-linear-to-br from-indigo-500 via-purple-500 to-pink-500 shadow-lg shadow-purple-500/20 shrink-0">
                         <Zap className="text-white fill-white" size={16} />
                     </div>
                     <span className="text-lg font-black tracking-tight text-white group-data-[collapsible=icon]:hidden whitespace-nowrap">
                         Code<span className="text-purple-500">Arena</span>
                     </span>
-                </div>
+                </Link>
             </div>
 
             <SidebarContent className="custom-scrollbar py-4 gap-6">
@@ -135,7 +142,7 @@ export function AppSidebar() {
                                                     <Link to={item.url} className="flex items-center gap-3 z-10 w-full relative p-2">
                                                         {/* Active Background Gradient */}
                                                         {isActive && (
-                                                            <div className={`absolute inset-0 bg-gradient-to-r ${item.gradient} opacity-100 transition-opacity`} />
+                                                            <div className={`absolute inset-0 bg-linear-to-r ${item.gradient} opacity-100 transition-opacity`} />
                                                         )}
 
                                                         {/* Icon with Glow Effect on Active */}
