@@ -9,6 +9,13 @@ const Settings = () => {
     const { user, checkUser } = useAuth();
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
+    const [activeTab, setActiveTab] = useState('General');
+    const [showHelp, setShowHelp] = useState(false);
+    const [passwords, setPasswords] = useState({
+        current: '',
+        new: '',
+        confirm: ''
+    });
 
     // Local state for settings
     const [settings, setSettings] = useState({
@@ -63,15 +70,6 @@ const Settings = () => {
         }
     };
 
-    const [passwords, setPasswords] = useState({
-        current: '',
-        new: '',
-        confirm: ''
-    });
-
-    const [showHelp, setShowHelp] = useState(false);
-    const [activeSection, setActiveSection] = useState('General');
-
     const handlePasswordChange = async (e) => {
         e.preventDefault();
         if (passwords.new !== passwords.confirm) {
@@ -111,8 +109,8 @@ const Settings = () => {
                             {['General', 'Accounts', 'Security', 'Privacy'].map((tab) => (
                                 <button
                                     key={tab}
-                                    className={`whitespace-nowrap md:w-full text-left px-4 py-2.5 rounded-lg text-sm font-bold transition-colors ${activeSection === tab ? 'bg-sky-500/10 text-sky-400' : 'text-gray-500 hover:bg-white/5 hover:text-gray-300'}`}
-                                    onClick={() => setActiveSection(tab)}
+                                    className={`whitespace-nowrap md:w-full text-left px-4 py-2.5 rounded-lg text-sm font-bold transition-colors ${activeTab === tab ? 'bg-sky-500/10 text-sky-400' : 'text-gray-500 hover:bg-white/5 hover:text-gray-300'}`}
+                                    onClick={() => setActiveTab(tab)}
                                 >
                                     {tab}
                                 </button>
@@ -128,7 +126,7 @@ const Settings = () => {
                             )}
 
                             {/* Account Section */}
-                            {activeSection === 'General' && (
+                            {activeTab === 'General' && (
                                 <section className="bg-[#111114] border border-white/10 rounded-2xl overflow-hidden animate-in slide-in-from-bottom-2 duration-300">
                                     <div className="p-6 border-b border-white/5 bg-white/2">
                                         <h2 className="text-lg font-bold flex items-center gap-2">
@@ -163,7 +161,7 @@ const Settings = () => {
                             )}
 
                             {/* Linked Accounts Section */}
-                            {activeSection === 'Accounts' && (
+                            {activeTab === 'Accounts' && (
                                 <section className="bg-[#111114] border border-white/10 rounded-2xl overflow-hidden animate-in slide-in-from-bottom-2 duration-300">
                                     <div className="p-6 border-b border-white/5 bg-white/2">
                                         <h2 className="text-lg font-bold flex items-center gap-2">
@@ -261,7 +259,7 @@ const Settings = () => {
                             )}
 
                             {/* Security Section */}
-                            {activeSection === 'Security' && (
+                            {activeTab === 'Security' && (
                                 <section className="bg-[#111114] border border-white/10 rounded-2xl overflow-hidden animate-in slide-in-from-bottom-2 duration-300">
                                     <div className="p-6 border-b border-white/5 bg-white/2">
                                         <h2 className="text-lg font-bold flex items-center gap-2">
@@ -322,7 +320,7 @@ const Settings = () => {
                             )}
 
                             {/* Danger Zone */}
-                            {activeSection === 'Privacy' && (
+                            {activeTab === 'Privacy' && (
                                 <section className="bg-red-500/5 border border-red-500/20 rounded-2xl overflow-hidden animate-in slide-in-from-bottom-2 duration-300">
                                     <div className="p-6">
                                         <h2 className="text-lg font-bold text-red-500 flex items-center gap-2 mb-2">
