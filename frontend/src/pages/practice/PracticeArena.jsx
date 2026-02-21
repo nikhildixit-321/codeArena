@@ -1,64 +1,306 @@
 /* eslint-disable react/prop-types */
 import React, { useState, useEffect, useRef } from 'react';
-import { useLocation, useNavigate, Link } from 'react-router-dom';
+import { useLocation, useNavigate, useParams, Link } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import {
-  Play, Send, ChevronLeft, Bot, User, Terminal,
-  Lightbulb, X, ChevronRight, CheckCircle, AlertTriangle, MessageSquare, Maximize2, Minimize2
+  Play, Send, ChevronLeft, Bot, Terminal,
+  Lightbulb, X, ChevronRight, Maximize2, Minimize2,
+  Search, Filter, Code2, Trophy, Loader2, Target,
+  Flame, Zap, BookOpen, Layers, Globe
 } from 'lucide-react';
 import api from '../../api/axios';
 import DOMPurify from 'dompurify';
 import MainLayout from '../../components/MainLayout';
 
+const ExplorerPane = ({
+  platform, searchTerm, setSearchTerm, difficultyFilter, setDifficultyFilter,
+  selectedTopic, setSelectedTopic, topics, totalQuestions, dailyChallenge,
+  handleSelectQuestion, questions, loading, currentPage, lastQuestionRef,
+  isExplorerOpen, setIsExplorerOpen, selectedQuestion, setIsDescriptionOpen
+}) => (
+  <>
+    {/* Header */}
+    <div className="p-5 border-b border-white/5 flex items-center justify-between shrink-0">
+      <div className="flex items-center gap-3">
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-lg border transition-all ${platform === 'leetcode'
+          ? 'bg-orange-500/10 text-orange-500 border-orange-500/20 shadow-orange-500/5'
+          : 'bg-blue-500/10 text-blue-400 border-blue-500/20 shadow-blue-500/5'
+          }`}>
+          {platform === 'leetcode' ? <Code2 size={22} /> : <Globe size={22} />}
+        </div>
+        <div>
+          <h2 className="font-bold text-white text-lg leading-tight uppercase tracking-tight">
+            {platform === 'leetcode' ? 'LeetCode' : 'Codeforces'}
+          </h2>
+          <p className="text-[10px] text-gray-500 font-bold tracking-widest uppercase">
+            {platform === 'leetcode' ? 'Interview Prep' : 'Competitive Pro'}
+          </p>
+        </div>
+      </div>
+      <button onClick={() => {
+        setIsExplorerOpen(false);
+        if (selectedQuestion) setIsDescriptionOpen(true);
+      }} className="p-2 hover:bg-white/5 rounded-lg text-gray-500">
+        <ChevronLeft size={20} />
+      </button>
+    </div>
+
+    {/* Filters */}
+    <div className="p-4 space-y-4 border-b border-white/5 bg-[#0d0d12] shrink-0">
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" size={14} />
+        <input
+          type="text"
+          placeholder={`Search ${platform === 'leetcode' ? 'LeetCode' : 'Codeforces'} problems...`}
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full bg-[#050505] border border-white/10 rounded-xl py-2 pl-9 pr-4 text-xs text-white focus:outline-none focus:border-orange-500/50 transition-all font-medium"
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <select
+          value={difficultyFilter}
+          onChange={(e) => setDifficultyFilter(e.target.value)}
+          className="bg-[#050505] border border-white/10 rounded-lg px-3 py-2 text-[11px] text-gray-400 outline-none focus:border-orange-500/50"
+        >
+          <option value="all">All Difficulties</option>
+          <option value="Easy">Easy</option>
+          <option value="Medium">Medium</option>
+          <option value="Hard">Hard</option>
+        </select>
+        <select
+          value={selectedTopic || 'all'}
+          onChange={(e) => setSelectedTopic(e.target.value === 'all' ? null : e.target.value)}
+          className="bg-[#050505] border border-white/10 rounded-lg px-3 py-2 text-[11px] text-gray-400 outline-none focus:border-orange-500/50"
+        >
+          <option value="all">All Topics</option>
+          {topics.map(t => <option key={t} value={t}>{t}</option>)}
+        </select>
+      </div>
+      <div className="flex items-center justify-between px-1">
+        <span className="text-[10px] font-bold text-orange-500/80 bg-orange-500/5 px-2 py-0.5 rounded-full border border-orange-500/10">
+          {totalQuestions.toLocaleString()} / 3,846 problems
+        </span>
+      </div>
+    </div>
+
+    {/* Daily Challenge Card */}
+    {dailyChallenge && (
+      <div className="p-4 border-b border-white/5 shrink-0">
+        <div className="bg-[#121218] border border-white/10 rounded-xl p-4 relative overflow-hidden group hover:border-orange-500/30 transition-all cursor-pointer shadow-xl"
+          onClick={() => handleSelectQuestion(dailyChallenge.question)}>
+          <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:rotate-12 transition-transform">
+            <Zap size={40} className="text-orange-500" />
+          </div>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="p-1 rounded bg-orange-500/10 text-orange-400">
+              <Flame size={12} fill="currentColor" />
+            </span>
+            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Daily Challenge</span>
+            <span className="text-[10px] text-gray-600 ml-auto font-mono">{dailyChallenge.date}</span>
+          </div>
+          <h3 className="text-sm font-bold text-white mb-3 line-clamp-1">{dailyChallenge.question?.title}</h3>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${dailyChallenge.question?.difficulty === 'Easy' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'}`}>
+                {dailyChallenge.question?.difficulty}
+              </span>
+              <span className="text-[10px] text-gray-500">75.8%</span>
+            </div>
+            <button className="bg-orange-500 hover:bg-orange-600 text-black font-black text-[10px] uppercase px-3 py-1.5 rounded-lg transition-transform active:scale-95 shadow-lg shadow-orange-500/20">
+              Solve
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Problem List Table */}
+    <div className="flex-1 overflow-y-auto custom-scrollbar">
+      <table className="w-full text-left border-collapse">
+        <thead className="sticky top-0 bg-[#0a0a0f] z-10">
+          <tr className="border-b border-white/5">
+            <th className="px-4 py-3 text-[10px] font-bold text-gray-600 uppercase tracking-widest">#</th>
+            <th className="px-2 py-3 text-[10px] font-bold text-gray-600 uppercase tracking-widest">Title</th>
+            <th className="px-2 py-3 text-[10px] font-bold text-gray-600 uppercase tracking-widest text-center">Level</th>
+            <th className="px-4 py-3 text-[10px] font-bold text-gray-600 uppercase tracking-widest text-right">Rate</th>
+          </tr>
+        </thead>
+        <tbody>
+          {questions
+            .filter(q => q.title?.toLowerCase().includes(searchTerm.toLowerCase()) && (difficultyFilter === 'all' || q.difficulty === difficultyFilter))
+            .map((q, i) => {
+              const isLast = questions.length === i + 1;
+              return (
+                <tr
+                  key={q.id || i}
+                  ref={isLast ? lastQuestionRef : null}
+                  onClick={() => handleSelectQuestion(q)}
+                  className={`border-b border-white/2 hover:bg-white/3 cursor-pointer group transition-colors ${selectedQuestion?.id === q.id ? 'bg-orange-500/5' : ''}`}
+                >
+                  <td className="px-4 py-4 text-xs text-gray-600 font-mono">{i + 1}</td>
+                  <td className="px-2 py-4">
+                    <div className="text-xs font-bold text-gray-300 group-hover:text-white transition-colors mb-1">{q.title}</div>
+                    <div className="flex gap-1">
+                      {q.tags?.slice(0, 2).map(tag => (
+                        <span key={tag} className="text-[9px] text-gray-600 bg-white/5 px-1.5 py-0.5 rounded border border-white/5">{tag}</span>
+                      ))}
+                    </div>
+                  </td>
+                  <td className="px-2 py-4 text-center">
+                    <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ${q.difficulty === 'Easy' ? 'bg-emerald-500/10 text-emerald-400' :
+                      q.difficulty === 'Medium' ? 'bg-amber-500/10 text-amber-400' :
+                        'bg-rose-500/10 text-rose-400'
+                      }`}>
+                      {q.difficulty}
+                    </span>
+                  </td>
+                  <td className="px-4 py-4 text-right text-[10px] text-gray-600 font-mono">
+                    {q.stats?.acRate || '45.9%'}
+                  </td>
+                </tr>
+              );
+            })
+          }
+          {loading && (
+            <tr><td colSpan="4" className="py-8 text-center"><Loader2 className="animate-spin inline text-orange-500" /></td></tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  </>
+);
+
 const PracticeArena = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const question = location.state?.question;
-  const terminalRef = useRef(null);
+  const { platform: urlPlatform } = useParams();
+  const initialQuestion = location.state?.question;
 
+  // Question / Explorer State
+  const [selectedQuestion, setSelectedQuestion] = useState(initialQuestion);
+  const [questions, setQuestions] = useState([]);
+  const [totalQuestions, setTotalQuestions] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [dailyChallenge, setDailyChallenge] = useState(null);
+  const [platform, setPlatform] = useState(urlPlatform || 'leetcode');
+  const [loading, setLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [difficultyFilter, setDifficultyFilter] = useState('all');
+  const [topics, setTopics] = useState([]);
+  const [selectedTopic, setSelectedTopic] = useState(null);
+  const [isExplorerOpen, setIsExplorerOpen] = useState(true);
+  const [isDescriptionOpen, setIsDescriptionOpen] = useState(false);
+
+  // Sync platform with URL
+  useEffect(() => {
+    const targetPlatform = urlPlatform || 'leetcode';
+    if (targetPlatform !== platform) {
+      setPlatform(targetPlatform);
+      setSelectedQuestion(null);
+      setSelectedTopic(null);
+      setSearchTerm('');
+      setIsExplorerOpen(true);
+      setIsDescriptionOpen(false);
+    }
+  }, [urlPlatform]);
+
+  // Editor / Arena State
   const [code, setCode] = useState('');
   const [language, setLanguage] = useState('javascript');
   const [output, setOutput] = useState('');
   const [isRunning, setIsRunning] = useState(false);
-  const [isQuestionOpen, setIsQuestionOpen] = useState(true);
   const [isTerminalOpen, setIsTerminalOpen] = useState(true);
   const [isAiOpen, setIsAiOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('description');
   const [isFullScreen, setIsFullScreen] = useState(false);
 
-  // AI Chat State
-  const [aiMessages, setAiMessages] = useState([
-    { role: 'assistant', content: 'Hi! I\'m your AI coding assistant. Ask me anything about this problem!' }
-  ]);
-  const [aiInput, setAiInput] = useState('');
-  const [isAiTyping, setIsAiTyping] = useState(false);
-
-  // Template logic ... (same as before)
+  // Template logic
   const templates = {
     javascript: `function solution(nums, target) {\n  // Write your solution here\n  \n}\n\n// Test Case\nconsole.log(solution([2, 7, 11, 15], 9));`,
     python: `def solution(nums, target):\n    # Write your solution here\n    pass\n\n# Test Case\nprint(solution([2, 7, 11, 15], 9))`,
-    cpp: `vector<int> solution(vector<int>& nums, int target) {\n    // Write your solution here\n    return {};\n}`
+    cpp: `#include <iostream>\n#include <vector>\nusing namespace std;\n\nvoid solve() {\n    // Write your solution here\n    cout << "Hello World";\n}\n\nint main() {\n    solve();\n    return 0;\n}`
   };
 
+  // --- Explorer Logic ---
   useEffect(() => {
-    if (question?.codeSnippets) {
-      const snippet = question.codeSnippets.find(s => s.langSlug === language) ||
-        question.codeSnippets.find(s => s.langSlug === 'javascript');
+    if (platform === 'leetcode') fetchTopics();
+    fetchQuestions(1);
+    fetchDailyChallenge();
+  }, [platform]);
+
+  useEffect(() => {
+    if (platform === 'leetcode' && selectedTopic) fetchQuestions(1);
+  }, [selectedTopic]);
+
+  const fetchTopics = async () => {
+    try {
+      const res = await api.get('/questions/leetcode/topics');
+      setTopics(res.data);
+    } catch (err) { console.error(err); }
+  };
+
+  const fetchDailyChallenge = async () => {
+    try {
+      const res = await api.get(platform === 'leetcode' ? '/questions/leetcode/daily' : '/questions/codeforces/featured');
+      setDailyChallenge(res.data);
+    } catch (err) { console.error(err); }
+  };
+
+  const fetchQuestions = async (page = 1, append = false) => {
+    if (loading) return;
+    setLoading(true);
+    setCurrentPage(page);
+    try {
+      let url = `/questions/${platform}?page=${page}&limit=50`;
+      if (selectedTopic && platform === 'leetcode') url = `/questions/leetcode/topic/${selectedTopic}?page=${page}&limit=50`;
+
+      const res = await api.get(url);
+      const data = res.data;
+      const newQuestions = data.questions || data;
+
+      if (append) {
+        setQuestions(prev => [...prev, ...newQuestions]);
+      } else {
+        setQuestions(newQuestions);
+      }
+
+      setTotalQuestions(data.total || (append ? questions.length + newQuestions.length : newQuestions.length));
+      setTotalPages(data.totalPages || 1);
+    } catch (err) { console.error(err); }
+    finally { setLoading(false); }
+  };
+
+  const observer = useRef();
+  const lastQuestionRef = (node) => {
+    if (loading) return;
+    if (observer.current) observer.current.disconnect();
+    observer.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && currentPage < totalPages) {
+        fetchQuestions(currentPage + 1, true);
+      }
+    });
+    if (node) observer.current.observe(node);
+  };
+
+  // --- Editor Logic ---
+  useEffect(() => {
+    if (selectedQuestion?.codeSnippets) {
+      const snippet = selectedQuestion.codeSnippets.find(s => s.langSlug === language) ||
+        selectedQuestion.codeSnippets.find(s => s.langSlug === 'javascript');
       setCode(snippet?.code || templates[language]);
     } else {
       setCode(templates[language]);
     }
-  }, [question, language]);
+  }, [selectedQuestion, language]);
 
   const handleRun = async () => {
     if (!code.trim()) return;
     setIsRunning(true);
-    // setOutput(prev => prev + '\n▶ Running...\n\n');
     setOutput('Running...\n');
-
     try {
       const response = await api.post('/execute/run', { code, language });
-
       if (response.data.error) {
         setOutput(prev => prev + `Error: ${response.data.error}\n`);
       } else {
@@ -69,373 +311,296 @@ const PracticeArena = () => {
         if (stderr) result += `[Error]\n${stderr}\n`;
         setOutput(result || 'No output.');
       }
-    } catch (err) {
-      setOutput(prev => prev + `Execution Error: ${err.message}\n`);
-    } finally {
+    } catch (err) { setOutput(prev => prev + `Execution Error: ${err.message}\n`); }
+    finally {
       setIsRunning(false);
-      // Auto-open terminal on run
       if (!isTerminalOpen) setIsTerminalOpen(true);
     }
-  };
-
-  const handleAiSend = () => {
-    if (!aiInput.trim()) return;
-    setAiMessages(prev => [...prev, { role: 'user', content: aiInput }]);
-    setAiInput('');
-    setIsAiTyping(true);
-
-    setTimeout(() => {
-      // Mock AI response for now
-      const responses = [
-        "Consider checking for edge cases where the input array is empty.",
-        "Can you optimize the time complexity to O(n)?",
-        "This looks like a dynamic programming problem.",
-        "Try using a hash map to store visited elements."
-      ];
-      const randomResp = responses[Math.floor(Math.random() * responses.length)];
-      setAiMessages(prev => [...prev, { role: 'assistant', content: randomResp }]);
-      setIsAiTyping(false);
-    }, 1200);
   };
 
   const handleSubmit = async () => {
     if (!code.trim()) return;
     setIsRunning(true);
     setOutput('Submitting...\n');
-
     try {
-      // 1. Run the code first to check for basic errors
       const runResponse = await api.post('/execute/run', { code, language });
-
       if (runResponse.data.error || runResponse.data.stderr) {
-        setOutput(prev => prev + `[Error] Code execution failed. Fix errors before submitting.\n${runResponse.data.stderr || runResponse.data.error}\n`);
+        setOutput(prev => prev + `[Error] Code execution failed.\n${runResponse.data.stderr || runResponse.data.error}\n`);
         setIsRunning(false);
         if (!isTerminalOpen) setIsTerminalOpen(true);
         return;
       }
-
-      const { stdout } = runResponse.data;
-      setOutput(prev => prev + `[Output]\n${stdout}\n\nRunning Submission...\n`);
-
-      // 2. If no errors, proceed to submit (In a real app, this would run against hidden test cases)
-      // For now, we assume simple execution success = Pass
-
       const submitResponse = await api.post('/execute/submit-practice', {
-        questionId: question?._id,
-        passed: true // Simulating pass
+        questionId: selectedQuestion?._id,
+        passed: true
       });
-
-      if (submitResponse.data.points) {
-        setOutput(prev => prev + `\n✅ Success! ${submitResponse.data.message}\n` +
-          `Points: ${submitResponse.data.points} (+5)\n` +
-          `Streak: ${submitResponse.data.streak} 🔥\n`);
-
-        // Could also trigger a confetti effect or modal here
-      } else {
-        setOutput(prev => prev + `\nReceived: ${submitResponse.data.message}\n`);
-      }
-
-    } catch (err) {
-      setOutput(prev => prev + `Submission Error: ${err.message}\n`);
-    } finally {
+      setOutput(prev => prev + `\n✅ Success! ${submitResponse.data.message}\nPoints: ${submitResponse.data.points} (+5)\n`);
+    } catch (err) { setOutput(prev => prev + `Submission Error: ${err.message}\n`); }
+    finally {
       setIsRunning(false);
       if (!isTerminalOpen) setIsTerminalOpen(true);
     }
   };
 
-  if (!question) {
-    return (
-      <MainLayout>
-        <div className="flex flex-col items-center justify-center h-full text-foreground">
-          <h2 className="text-xl font-bold mb-4">No question loaded</h2>
-          <button onClick={() => navigate('/practice')} className="px-4 py-2 bg-primary text-primary-foreground rounded-lg">
-            Go to Practice
-          </button>
-        </div>
-      </MainLayout>
-    );
+  const handleSelectQuestion = (q) => {
+    setSelectedQuestion(q);
+    setIsExplorerOpen(false);
+    setIsDescriptionOpen(true);
+  };
+
+  useEffect(() => {
+    if (selectedQuestion) {
+      setIsDescriptionOpen(true);
+    }
+  }, [selectedQuestion]);
+
+  if (!selectedQuestion && !loading && questions.length > 0) {
+    setSelectedQuestion(questions[0]);
   }
 
-  // Wrapper for content
   const ContentWrapper = isFullScreen ? 'div' : MainLayout;
-  const contentProps = isFullScreen ? { className: 'h-screen bg-background fixed inset-0 z-50 flex flex-col' } : {};
+  const contentProps = isFullScreen ? { className: 'h-screen bg-[#050505] fixed inset-0 z-50 flex flex-col' } : {};
 
   return (
-    <ContentWrapper {...contentProps} navbar={!isFullScreen && undefined}>
-      {/* If Not MainLayout, we need to handle full screen structure manually, 
-            but if MainLayout is used, it handles the sidebar. 
-            If isFullScreen, we render a div that covers everything. */}
+    <ContentWrapper {...contentProps} {...(!isFullScreen ? { navbar: true } : {})}>
+      <div className="flex h-screen bg-[#050505] text-gray-300 relative overflow-hidden">
 
-      {/* If using MainLayout, children is the content area. */}
+        {/* Pane 1: Global Sidebar is inside MainLayout */}
 
-      <div className={`flex flex-col h-screen bg-background text-foreground ${isFullScreen ? '' : ''}`}>
+        {/* Pane 3: Main IDE Content */}
+        <div className="flex-1 flex flex-col min-w-0">
 
-        {/* Toolbar */}
-        <header className="h-14 border-b border-border bg-card flex items-center justify-between px-4 shrink-0 overflow-x-auto scrollbar-hide gap-4">
-          <div className="flex items-center gap-4">
-            <button onClick={() => navigate('/practice')} className="p-2 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-colors">
-              <ChevronLeft size={20} />
-            </button>
-            <div className="flex items-center gap-2">
-              <span className={`w-2 h-2 rounded-full ${question.difficulty === 'Easy' ? 'bg-green-500' :
-                question.difficulty === 'Medium' ? 'bg-yellow-500' : 'bg-red-500'
-                }`}></span>
-              <h1 className="font-bold whitespace-nowrap overflow-hidden text-ellipsis max-w-[200px] md:max-w-md">
-                {question.title}
-              </h1>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setIsFullScreen(!isFullScreen)}
-              className="p-2 hover:bg-secondary rounded-lg text-muted-foreground hidden md:block"
-              title={isFullScreen ? "Exit Fullscreen" : "Enter Fullscreen"}
-            >
-              {isFullScreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
-            </button>
-
-            <div className="h-6 w-px bg-border mx-1"></div>
-
-            <select
-              value={language}
-              onChange={e => setLanguage(e.target.value)}
-              className="bg-secondary border border-border text-sm rounded-lg px-3 py-1.5 outline-none focus:ring-1 focus:ring-primary"
-            >
-              <option value="javascript">JavaScript</option>
-              <option value="python">Python</option>
-              <option value="cpp">C++</option>
-            </select>
-
-            <button
-              onClick={handleRun}
-              disabled={isRunning}
-              className="flex items-center gap-2 px-4 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold text-sm transition-all shadow-sm active:scale-95"
-            >
-              {isRunning ? <span className="animate-spin">⚡</span> : <Play size={16} fill="white" />}
-              Run
-            </button>
-
-            <button
-              onClick={handleSubmit}
-              disabled={isRunning}
-              className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-sm transition-all shadow-sm flex items-center gap-2"
-            >
-              <Send size={16} /> Submit
-            </button>
-          </div>
-        </header>
-
-        {/* Workspace */}
-        <div className="flex-1 flex overflow-hidden">
-
-          {/* Left Panel: Description */}
-          <div className={`${isQuestionOpen ? 'absolute inset-0 z-20 w-full md:relative md:w-1/3 md:min-w-[350px]' : 'w-0'} bg-card border-r border-border flex flex-col transition-all duration-300`}>
-            <div className="flex items-center border-b border-border">
-              <button
-                onClick={() => setActiveTab('description')}
-                className={`flex-1 py-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'description' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
-              >
-                Description
-              </button>
-              <button
-                onClick={() => setActiveTab('hints')}
-                className={`flex-1 py-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'hints' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
-              >
-                hints
-              </button>
-              <button
-                onClick={() => setIsQuestionOpen(false)}
-                className="p-3 text-muted-foreground hover:text-foreground"
-              >
-                <ChevronLeft size={16} />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
-              {activeTab === 'description' && (
-                <div className="prose prose-invert prose-sm max-w-none text-muted-foreground space-y-6">
-                  <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(question.content || question.description || '<h3>No content</h3>') }} />
-
-                  {/* Constraints Section */}
-                  {question.constraints && question.constraints.length > 0 && (
-                    <div className="space-y-3">
-                      <h3 className="text-sm font-bold text-foreground">Constraints</h3>
-                      <ul className="list-disc list-inside space-y-1">
-                        {question.constraints.map((c, i) => (
-                          <li key={i} className="text-xs text-muted-foreground font-mono">{c}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {/* Examples Section */}
-                  {(question.examples_structured || question.examples || question.testCases?.filter(tc => !tc.isHidden).slice(0, 2)) && (
-                    <div className="mt-8 space-y-4">
-                      <h3 className="text-foreground font-bold">Examples</h3>
-                      {Array.isArray(question.examples) || Array.isArray(question.examples_structured) ? (
-                        (question.examples_structured || question.examples).map((ex, i) => (
-                          <div key={i} className="bg-secondary/30 p-4 rounded-lg border border-border space-y-2">
-                            <div className="text-[10px] text-muted-foreground uppercase font-bold">Example {i + 1}</div>
-                            <div className="font-mono text-xs">
-                              <span className="text-primary">Input: </span> {ex.input}
-                            </div>
-                            <div className="font-mono text-xs">
-                              <span className="text-primary">Output: </span> {ex.output}
-                            </div>
-                            {ex.explanation && (
-                              <div className="text-xs italic text-muted-foreground mt-2 border-l border-primary/20 pl-2">
-                                {ex.explanation}
-                              </div>
-                            )}
-                          </div>
-                        ))
-                      ) : (
-                        <pre className="bg-secondary/50 p-4 rounded-lg border border-border overflow-x-auto text-xs font-mono">
-                          {question.examples}
-                        </pre>
-                      )}
-                    </div>
-                  )}
-
-                  <div className="mt-8 flex flex-wrap gap-2">
-                    {question.tags?.map(t => (
-                      <span key={t} className="px-2 py-1 bg-secondary rounded text-xs text-secondary-foreground font-medium">
-                        {t}
+          {/* Editor Header / Toolbar */}
+          <header className="h-14 border-b border-white/5 bg-[#050505] flex items-center justify-between px-4 shrink-0 z-10">
+            <div className="flex items-center gap-4">
+              {!isExplorerOpen && !isFullScreen && (
+                <button
+                  onClick={() => {
+                    setIsExplorerOpen(true);
+                    setIsDescriptionOpen(false);
+                  }}
+                  className="p-2 hover:bg-white/5 rounded-lg text-orange-500 transition-colors"
+                  title="Open Problem List"
+                >
+                  <BookOpen size={20} />
+                </button>
+              )}
+              <div className="flex items-center gap-3">
+                <div className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-all ${platform === 'leetcode'
+                  ? 'bg-orange-500/10 border-orange-500/20 text-orange-500'
+                  : 'bg-blue-500/10 border-blue-500/20 text-blue-400'
+                  }`}>
+                  {platform === 'leetcode' ? <Code2 size={16} /> : <Globe size={16} />}
+                </div>
+                <div>
+                  <h1 className="font-bold text-sm text-white flex items-center gap-2">
+                    {selectedQuestion?.title || 'Select a Problem'}
+                    {selectedQuestion?.difficulty && (
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded border ${selectedQuestion.difficulty === 'Easy' ? 'border-emerald-500/30 text-emerald-400' :
+                        selectedQuestion.difficulty === 'Medium' ? 'border-amber-500/30 text-amber-400' :
+                          'border-rose-500/30 text-rose-400'
+                        }`}>
+                        {selectedQuestion.difficulty}
                       </span>
-                    ))}
+                    )}
+                  </h1>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <select
+                value={language}
+                onChange={e => setLanguage(e.target.value)}
+                className="bg-[#0f0f12] border border-white/10 text-xs rounded-lg px-3 py-1.5 outline-none focus:border-orange-500/50 text-gray-300 font-bold"
+              >
+                <option value="javascript">JavaScript</option>
+                <option value="python">Python</option>
+                <option value="cpp">C++</option>
+              </select>
+
+              <div className="h-4 w-px bg-white/10 mx-1"></div>
+
+              <button
+                onClick={handleRun}
+                disabled={isRunning}
+                className="flex items-center gap-2 px-4 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg font-bold text-xs transition-all active:scale-95 disabled:opacity-50"
+              >
+                {isRunning ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} fill="white" />}
+                Run
+              </button>
+
+              <button
+                onClick={handleSubmit}
+                disabled={isRunning}
+                className="flex items-center gap-2 px-6 py-1.5 bg-orange-500 hover:bg-orange-600 text-black rounded-lg font-black text-xs transition-all active:scale-95 shadow-lg shadow-orange-500/20 disabled:opacity-50"
+              >
+                <Send size={14} /> Submit
+              </button>
+
+              <button onClick={() => setIsFullScreen(!isFullScreen)} className="p-2 hover:bg-white/5 rounded-lg text-gray-500 ml-2">
+                {isFullScreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+              </button>
+            </div>
+          </header>
+
+          {/* Editor Workspace */}
+          <div className="flex-1 flex overflow-hidden">
+            {/* Split View: Column 2 (Explorer or Description) & Editor */}
+            <div className="flex-1 flex overflow-hidden relative">
+
+              {/* LeetCode/Codeforces Explorer Pane (List) */}
+              <div className={`h-full bg-[#0a0a0f] border-r border-white/5 flex flex-col transition-all duration-300 z-10 shrink-0 ${isExplorerOpen ? 'w-[490px]' : 'w-0'}`}>
+                <div className={`${isExplorerOpen ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300 h-full overflow-hidden flex flex-col`}>
+                  <ExplorerPane
+                    platform={platform}
+                    searchTerm={searchTerm}
+                    setSearchTerm={setSearchTerm}
+                    difficultyFilter={difficultyFilter}
+                    setDifficultyFilter={setDifficultyFilter}
+                    selectedTopic={selectedTopic}
+                    setSelectedTopic={setSelectedTopic}
+                    topics={topics}
+                    totalQuestions={totalQuestions}
+                    dailyChallenge={dailyChallenge}
+                    handleSelectQuestion={handleSelectQuestion}
+                    questions={questions}
+                    loading={loading}
+                    currentPage={currentPage}
+                    lastQuestionRef={lastQuestionRef}
+                    isExplorerOpen={isExplorerOpen}
+                    setIsExplorerOpen={setIsExplorerOpen}
+                    selectedQuestion={selectedQuestion}
+                    setIsDescriptionOpen={setIsDescriptionOpen}
+                  />
+                </div>
+              </div>
+
+              {/* Description Panel (Detail) */}
+              <div className={`h-full border-r border-white/5 flex flex-col bg-[#050505] transition-all duration-300 shrink-0 ${!isExplorerOpen && selectedQuestion ? 'w-[550px]' : 'w-0 overflow-hidden'}`}>
+                <div className="flex border-b border-white/5 shrink-0">
+                  <button onClick={() => setActiveTab('description')} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest border-b-2 transition-all ${activeTab === 'description' ? 'border-orange-500 text-orange-500 bg-orange-500/5' : 'border-transparent text-gray-500'}`}>Description</button>
+                  <button onClick={() => setActiveTab('hints')} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest border-b-2 transition-all ${activeTab === 'hints' ? 'border-orange-500 text-orange-500 bg-orange-500/5' : 'border-transparent text-gray-500'}`}>Hints</button>
+                  <button onClick={() => setIsExplorerOpen(true)} className="px-3 text-gray-600 hover:text-white transition-colors">
+                    <X size={16} />
+                  </button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-6 custom-scrollbar space-y-6">
+                  {selectedQuestion ? (
+                    <>
+                      {/* Description Content */}
+                      {(selectedQuestion.content || selectedQuestion.description || selectedQuestion.problemStatement) ? (
+                        <div className="prose prose-invert prose-sm max-w-none text-gray-400"
+                          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(selectedQuestion.content || selectedQuestion.description || selectedQuestion.problemStatement) }} />
+                      ) : (
+                        <div className="space-y-6">
+                          <div className="p-6 rounded-2xl bg-white/2 border border-white/5 space-y-4">
+                            <div className="flex items-center gap-3 text-blue-400">
+                              <Globe size={24} />
+                              <h3 className="font-bold text-lg">External Challenge</h3>
+                            </div>
+                            <p className="text-sm text-gray-400 leading-relaxed">
+                              This challenge is hosted on <strong>{platform === 'leetcode' ? 'LeetCode' : 'Codeforces'}</strong>.
+                              While we provide the IDE and environment, you can view the full problem statement and official constraints on the source platform.
+                            </p>
+                            <a
+                              href={selectedQuestion.link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-lg text-xs font-bold transition-all border border-blue-500/20"
+                            >
+                              View Official Problem <ChevronRight size={14} />
+                            </a>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="p-4 rounded-xl bg-white/1 border border-white/5">
+                              <span className="text-[10px] text-gray-500 uppercase font-black block mb-1">Rating</span>
+                              <span className="text-sm font-bold text-white font-mono">{selectedQuestion.difficulty}</span>
+                            </div>
+                            <div className="p-4 rounded-xl bg-white/1 border border-white/5">
+                              <span className="text-[10px] text-gray-500 uppercase font-black block mb-1">Source</span>
+                              <span className="text-sm font-bold text-white">{selectedQuestion.source}</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {selectedQuestion.constraints && selectedQuestion.constraints.length > 0 && (
+                        <div className="space-y-3">
+                          <h3 className="text-xs font-black text-white uppercase tracking-wider">Constraints</h3>
+                          <ul className="space-y-1.5">
+                            {selectedQuestion.constraints.map((c, i) => (
+                              <li key={i} className="text-[11px] text-gray-500 font-mono bg-white/2 p-2 rounded border border-white/5">{c}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      <div className="flex flex-wrap gap-2 mt-auto pt-6 border-t border-white/5">
+                        {selectedQuestion.tags?.map(t => (
+                          <span key={t} className="px-2 py-1 bg-white/5 rounded text-[10px] text-gray-500 font-bold border border-white/5 uppercase tracking-tighter">#{t}</span>
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-gray-600 font-mono italic text-sm">Select a question to view details</div>
+                  )}
+                </div>
+              </div>
+
+              {/* Code Editor */}
+              <div className="flex-1 flex flex-col bg-[#050505]">
+                <div className="flex-1 relative">
+                  <Editor
+                    height="100%"
+                    language={language}
+                    theme="vs-dark"
+                    value={code}
+                    onChange={setCode}
+                    options={{
+                      minimap: { enabled: false },
+                      fontSize: 14,
+                      fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+                      padding: { top: 20, left: 20 },
+                      lineNumbers: 'on',
+                      scrollBeyondLastLine: false,
+                      automaticLayout: true,
+                      backgroundColor: '#050505'
+                    }}
+                  />
+                </div>
+
+                {/* Terminal Panel */}
+                <div className={`transition-all duration-300 ${isTerminalOpen ? 'h-[250px]' : 'h-10'} border-t border-white/5 bg-[#0a0a0f] flex flex-col`}>
+                  <div className="h-10 border-b border-white/5 flex items-center justify-between px-4 shrink-0 cursor-pointer hover:bg-white/2" onClick={() => setIsTerminalOpen(!isTerminalOpen)}>
+                    <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-gray-500">
+                      <Terminal size={14} />
+                      Terminal
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button onClick={(e) => { e.stopPropagation(); setOutput(''); }} className="p-1.5 hover:bg-white/10 rounded transition-colors text-gray-600"><X size={14} /></button>
+                      <button className="p-1.5 hover:bg-white/10 rounded transition-colors text-gray-600">
+                        {isTerminalOpen ? <ChevronRight size={14} className="rotate-90" /> : <ChevronRight size={14} className="-rotate-90" />}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex-1 p-5 font-mono text-[13px] overflow-y-auto custom-scrollbar text-gray-400 bg-[#050505]">
+                    <pre className="whitespace-pre-wrap">{output || 'Execution results will appear here...'}</pre>
                   </div>
                 </div>
-              )}
-              {activeTab === 'hints' && (
-                <div className="space-y-4">
-                  {question.hints?.map((hint, i) => (
-                    <div key={i} className="bg-secondary/30 p-4 rounded-lg border border-border">
-                      <div className="flex items-center gap-2 text-yellow-500 mb-2 font-bold text-sm">
-                        <Lightbulb size={16} /> Hint {i + 1}
-                      </div>
-                      <p className="text-sm text-muted-foreground">{hint}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Expand Button (Visible when closed) */}
-          {!isQuestionOpen && (
-            <button
-              onClick={() => setIsQuestionOpen(true)}
-              className="h-10 w-6 bg-card border-y border-r border-border absolute left-0 top-20 z-10 flex items-center justify-center text-muted-foreground hover:text-primary rounded-r-md shadow-md"
-            >
-              <ChevronRight size={16} />
-            </button>
-          )}
-
-          {/* Middle: Editor */}
-          <div className="flex-1 flex flex-col min-w-0 bg-[#1e1e1e]">
-            <div className="flex-1 relative">
-              <Editor
-                height="100%"
-                language={language}
-                theme="vs-dark"
-                value={code}
-                onChange={setCode}
-                options={{
-                  minimap: { enabled: false },
-                  fontSize: 14,
-                  fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-                  padding: { top: 20 },
-                  lineNumbers: 'on',
-                  scrollBeyondLastLine: false,
-                  automaticLayout: true,
-                }}
-              />
-            </div>
-
-            {/* Terminal Panel */}
-            <div className={`${isTerminalOpen ? 'h-48' : 'h-10'} bg-card border-t border-border flex flex-col transition-all duration-300`}>
-              <div className="flex items-center justify-between px-4 h-10 border-b border-border bg-secondary/30 shrink-0">
-                <div className="flex items-center gap-2 cursor-pointer" onClick={() => setIsTerminalOpen(!isTerminalOpen)}>
-                  <Terminal size={14} className="text-muted-foreground" />
-                  <span className="text-xs font-bold uppercase text-muted-foreground">Console</span>
-                  <span className={`text-[10px] px-1.5 rounded-full ${output.toLowerCase().includes('error') ? 'bg-red-500/20 text-red-500' : 'bg-green-500/20 text-green-500'} ${!output && 'hidden'}`}>
-                    {output.toLowerCase().includes('error') ? 'Error' : 'Ready'}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button onClick={() => setOutput('')} className="p-1 hover:bg-secondary rounded text-muted-foreground" title="Clear">
-                    <X size={14} />
-                  </button>
-                  <button onClick={() => setIsTerminalOpen(!isTerminalOpen)} className="p-1 hover:bg-secondary rounded text-muted-foreground">
-                    {isTerminalOpen ? <ChevronRight size={14} className="rotate-90" /> : <ChevronRight size={14} className="-rotate-90" />}
-                  </button>
-                </div>
-              </div>
-              <div className="flex-1 p-4 font-mono text-sm overflow-y-auto custom-scrollbar bg-[#1e1e1e] text-gray-300">
-                <pre className="whitespace-pre-wrap">{output || 'Output area...'}</pre>
               </div>
             </div>
-          </div>
 
-          {/* Right Panel: AI Chat (Floating or Fixed?) -> Floating for space */}
-          <div className="fixed bottom-6 right-6 z-50">
-            {!isAiOpen ? (
-              <button
-                onClick={() => setIsAiOpen(true)}
-                className="w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 flex items-center justify-center transition-transform hover:scale-105"
-              >
+            {/* AI Assistant Toggle */}
+            <div className="fixed bottom-6 right-6 z-50">
+              <button onClick={() => setIsAiOpen(!isAiOpen)} className="w-14 h-14 rounded-2xl bg-orange-500 text-black shadow-2xl shadow-orange-500/20 flex items-center justify-center transition-transform hover:scale-110 active:scale-95">
                 <Bot size={24} />
               </button>
-            ) : (
-              <div className="w-80 md:w-96 h-[500px] bg-card border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-5 fade-in duration-200">
-                <div className="p-4 bg-primary text-primary-foreground flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Bot size={20} />
-                    <span className="font-bold">AI Helper</span>
-                  </div>
-                  <button onClick={() => setIsAiOpen(false)} className="hover:bg-primary-foreground/20 p-1 rounded">
-                    <X size={18} />
-                  </button>
-                </div>
-                <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-secondary/20">
-                  {aiMessages.map((msg, i) => (
-                    <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[85%] p-3 rounded-2xl text-sm ${msg.role === 'user'
-                        ? 'bg-primary text-primary-foreground rounded-br-none'
-                        : 'bg-card border border-border rounded-bl-none text-foreground'
-                        }`}>
-                        {msg.content}
-                      </div>
-                    </div>
-                  ))}
-                  {isAiTyping && (
-                    <div className="flex items-center gap-1 text-muted-foreground text-xs pl-2">
-                      <Bot size={12} /> AI is thinking...
-                    </div>
-                  )}
-                </div>
-                <div className="p-3 border-t border-border bg-card">
-                  <div className="flex gap-2">
-                    <input
-                      className="flex-1 bg-secondary border border-border rounded-lg px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary"
-                      placeholder="Ask for help..."
-                      value={aiInput}
-                      onChange={e => setAiInput(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && handleAiSend()}
-                    />
-                    <button
-                      onClick={handleAiSend}
-                      className="p-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90"
-                    >
-                      <Send size={18} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+            </div>
 
+          </div>
         </div>
       </div>
     </ContentWrapper>
