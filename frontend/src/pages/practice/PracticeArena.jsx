@@ -254,15 +254,47 @@ const PracticeArena = () => {
 
             <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
               {activeTab === 'description' && (
-                <div className="prose prose-invert prose-sm max-w-none text-muted-foreground">
-                  <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(question.content || '<h3>No content</h3>') }} />
+                <div className="prose prose-invert prose-sm max-w-none text-muted-foreground space-y-6">
+                  <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(question.content || question.description || '<h3>No content</h3>') }} />
 
-                  {question.examples && (
+                  {/* Constraints Section */}
+                  {question.constraints && question.constraints.length > 0 && (
+                    <div className="space-y-3">
+                      <h3 className="text-sm font-bold text-foreground">Constraints</h3>
+                      <ul className="list-disc list-inside space-y-1">
+                        {question.constraints.map((c, i) => (
+                          <li key={i} className="text-xs text-muted-foreground font-mono">{c}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Examples Section */}
+                  {(question.examples_structured || question.examples || question.testCases?.filter(tc => !tc.isHidden).slice(0, 2)) && (
                     <div className="mt-8 space-y-4">
                       <h3 className="text-foreground font-bold">Examples</h3>
-                      <pre className="bg-secondary/50 p-4 rounded-lg border border-border overflow-x-auto text-xs font-mono">
-                        {question.examples}
-                      </pre>
+                      {Array.isArray(question.examples) || Array.isArray(question.examples_structured) ? (
+                        (question.examples_structured || question.examples).map((ex, i) => (
+                          <div key={i} className="bg-secondary/30 p-4 rounded-lg border border-border space-y-2">
+                            <div className="text-[10px] text-muted-foreground uppercase font-bold">Example {i + 1}</div>
+                            <div className="font-mono text-xs">
+                              <span className="text-primary">Input: </span> {ex.input}
+                            </div>
+                            <div className="font-mono text-xs">
+                              <span className="text-primary">Output: </span> {ex.output}
+                            </div>
+                            {ex.explanation && (
+                              <div className="text-xs italic text-muted-foreground mt-2 border-l border-primary/20 pl-2">
+                                {ex.explanation}
+                              </div>
+                            )}
+                          </div>
+                        ))
+                      ) : (
+                        <pre className="bg-secondary/50 p-4 rounded-lg border border-border overflow-x-auto text-xs font-mono">
+                          {question.examples}
+                        </pre>
+                      )}
                     </div>
                   )}
 
