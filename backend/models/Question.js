@@ -27,6 +27,8 @@ const QuestionSchema = new mongoose.Schema({
     type: String, // Codeforces, LeetCode
     required: true
   },
+  leetcodeSlug: String,
+  leetcodeId: String,
   officialLink: String,
   testCases: [{
     input: String,

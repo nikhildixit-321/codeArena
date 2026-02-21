@@ -53,7 +53,11 @@ const UserSchema = new mongoose.Schema({
     notifications: { type: Boolean, default: true },
     publicProfile: { type: Boolean, default: true },
     soundEffects: { type: Boolean, default: true },
-    language: { type: String, default: 'English' }
+    language: { type: String, default: 'English' },
+    leetcodeHandle: { type: String, default: '' },
+    codeforcesHandle: { type: String, default: '' },
+    leetcodeSession: { type: String, default: '' }, // LEETCODE_SESSION cookie
+    autoSubmitEnabled: { type: Boolean, default: false }
   }
 });
 
