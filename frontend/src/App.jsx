@@ -2,16 +2,26 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { useState } from 'react';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import Login from './pages/auth/Login';
-import Register from './pages/auth/Register';
-import AuthCallback from './pages/auth/AuthCallback';
-import Home from './pages/deshboard/Home';
-import PracticeHome from './pages/practice/PracticeHome';
-import PracticeArena from './pages/practice/PracticeArena';
-import IDE from './pages/ide/IDE';
-import MatchArena from './pages/match/MatchArena';
-import Matchmaking from './pages/matchmaking/Matchmaking';
-import Profile from './pages/profile/Profile';
+import { lazy, Suspense } from 'react';
+import { Loader2 } from 'lucide-react';
+
+// Lazy load pages for better performance
+const Login = lazy(() => import('./pages/auth/Login'));
+const Register = lazy(() => import('./pages/auth/Register'));
+const Home = lazy(() => import('./pages/deshboard/Home'));
+const PracticeArena = lazy(() => import('./pages/practice/PracticeArena'));
+const IDE = lazy(() => import('./pages/ide/IDE'));
+const MatchArena = lazy(() => import('./pages/match/MatchArena'));
+const Matchmaking = lazy(() => import('./pages/matchmaking/Matchmaking'));
+const Profile = lazy(() => import('./pages/profile/Profile'));
+const AuthCallback = lazy(() => import('./pages/auth/AuthCallback'));
+
+const GlobalLoader = () => (
+  <div className="min-h-screen flex flex-col items-center justify-center bg-[#050505] text-white">
+    <Loader2 className="animate-spin text-orange-500 mb-4" size={40} />
+    <span className="text-xs font-black uppercase tracking-widest text-gray-500">Entering the Arena...</span>
+  </div>
+);
 
 const AuthOverlay = () => {
   const { user, loading } = useAuth();
@@ -54,19 +64,21 @@ export default function App() {
     <AuthProvider>
       <Router>
         <TooltipProvider>
-          <Routes>
-            <Route path="/" element={<AuthOverlay />} />
-            <Route path="/auth/callback" element={<AuthCallback />} />
-            <Route path="/dashboard" element={<PrivateRoute><Home /></PrivateRoute>} />
-            <Route path="/practice" element={<PrivateRoute><PracticeArena /></PrivateRoute>} />
-            <Route path="/practice/:platform" element={<PrivateRoute><PracticeArena /></PrivateRoute>} />
-            <Route path="/practice/arena" element={<PrivateRoute><PracticeArena /></PrivateRoute>} />
-            <Route path="/ide" element={<PrivateRoute><IDE /></PrivateRoute>} />
-            <Route path="/matchmaking" element={<PrivateRoute><Matchmaking /></PrivateRoute>} />
-            <Route path="/arena/:matchId" element={<PrivateRoute><MatchArena /></PrivateRoute>} />
-            <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
-            <Route path="*" element={<Navigate to="/" />} />
-          </Routes>
+          <Suspense fallback={<GlobalLoader />}>
+            <Routes>
+              <Route path="/" element={<AuthOverlay />} />
+              <Route path="/auth/callback" element={<AuthCallback />} />
+              <Route path="/dashboard" element={<PrivateRoute><Home /></PrivateRoute>} />
+              <Route path="/practice" element={<PrivateRoute><PracticeArena /></PrivateRoute>} />
+              <Route path="/practice/:platform" element={<PrivateRoute><PracticeArena /></PrivateRoute>} />
+              <Route path="/practice/arena" element={<PrivateRoute><PracticeArena /></PrivateRoute>} />
+              <Route path="/ide" element={<PrivateRoute><IDE /></PrivateRoute>} />
+              <Route path="/matchmaking" element={<PrivateRoute><Matchmaking /></PrivateRoute>} />
+              <Route path="/arena/:matchId" element={<PrivateRoute><MatchArena /></PrivateRoute>} />
+              <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
+              <Route path="*" element={<Navigate to="/" />} />
+            </Routes>
+          </Suspense>
         </TooltipProvider>
       </Router>
     </AuthProvider>
