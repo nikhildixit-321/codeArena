@@ -38,7 +38,7 @@ const QuestionSchema = new mongoose.Schema({
   hints: [String],
   timeLimit: {
     type: Number, // in seconds
-    default: 1
+    default: 900 // 15 minutes default
   },
   memoryLimit: {
     type: Number, // in MB
