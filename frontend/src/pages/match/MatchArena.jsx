@@ -8,7 +8,7 @@ import {
   Play, Send, Trophy, Timer, Zap, Shield, Swords,
   CheckCircle, XCircle, Terminal, Cpu, Code2,
   Minimize2, Maximize2, AlertCircle, ChevronLeft,
-  Layout, Settings, ArrowRight
+  Layout, Settings, ArrowRight, Minus, Lightbulb
 } from 'lucide-react';
 
 const MatchArena = () => {
@@ -214,24 +214,33 @@ class Solution {
   // --- MATCH ENDED SCREEN ---
   if (matchEnded) {
     const isWinner = matchEnded.winner === (user?._id || 'me');
+    const isDraw = !matchEnded.winner;
     const isAborted = matchEnded.aborted;
 
     return (
       <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center p-4 overflow-hidden relative">
         {/* Victory/Defeat Backgrounds */}
-        <div className={`absolute inset-0 bg-[radial-gradient(ellipse_at_center,var(--tw-gradient-stops))] ${isWinner ? 'from-green-900/40 via-[#050505] to-[#050505]' : 'from-red-900/40 via-[#050505] to-[#050505]'}`}></div>
+        <div className={`absolute inset-0 bg-[radial-gradient(ellipse_at_center,var(--tw-gradient-stops))] ${isWinner ? 'from-green-900/40 via-[#050505] to-[#050505]' : (isDraw ? 'from-blue-900/40 via-[#050505] to-[#050505]' : 'from-red-900/40 via-[#050505] to-[#050505]')}`}></div>
         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
 
         <div className="relative z-10 bg-[#0a0a0f] border border-white/10 p-12 rounded-3xl flex flex-col items-center max-w-lg w-full text-center shadow-2xl animate-in zoom-in-95 duration-500">
-          <div className={`mb-8 p-8 rounded-full ${isWinner ? 'bg-green-500/10 text-green-500 shadow-[0_0_50px_rgba(34,197,94,0.3)]' : 'bg-red-500/10 text-red-500 shadow-[0_0_50px_rgba(239,68,68,0.3)]'} ring-1 ring-white/10`}>
-            {isWinner ? <Trophy size={80} className="animate-bounce" /> : <AlertCircle size={80} className="opacity-70" />}
+          <div className={`mb-8 p-8 rounded-full ${isWinner ? 'bg-green-500/10 text-green-500 shadow-[0_0_50px_rgba(34,197,94,0.3)]' : (isDraw ? 'bg-blue-500/10 text-blue-500 shadow-[0_0_50px_rgba(59,130,246,0.3)]' : 'bg-red-500/10 text-red-500 shadow-[0_0_50px_rgba(239,68,68,0.3)]')} ring-1 ring-white/10`}>
+            {isWinner ? <Trophy size={80} className="animate-bounce" /> : (isDraw ? <Minus size={80} /> : <AlertCircle size={80} className="opacity-70" />)}
           </div>
 
-          <h2 className={`text-4xl md:text-6xl font-black mb-2 bg-clip-text text-transparent ${isWinner ? 'bg-linear-to-b from-white to-green-400' : 'bg-linear-to-b from-white to-red-400'} uppercase tracking-tighter`}>
-            {isWinner ? 'Victory' : 'Defeat'}
+          <h2 className={`text-4xl md:text-6xl font-black mb-2 bg-clip-text text-transparent ${isWinner ? 'bg-linear-to-b from-white to-green-400' : (isDraw ? 'bg-linear-to-b from-white to-blue-400' : 'bg-linear-to-b from-white to-red-400')} uppercase tracking-tighter`}>
+            {isWinner ? 'Victory' : (isDraw ? 'Draw' : 'Defeat')}
           </h2>
+
+          {/* Winner Name Display */}
+          {!isWinner && !isDraw && !isAborted && (
+            <p className="text-gray-400 text-sm font-bold mt-2 uppercase tracking-widest">
+              Winner: <span className="text-red-400">{matchData.opponent?.username || 'Rival'}</span>
+            </p>
+          )}
+
           {isAborted && (
-            <p className="text-orange-500 text-xs font-black uppercase tracking-widest mb-4">
+            <p className="text-orange-500 text-xs font-black uppercase tracking-widest mb-4 mt-2">
               {matchEnded.abortedBy === user._id ? 'You abandoned the battle' : 'Opponent fled the arena'}
             </p>
           )}
@@ -239,8 +248,8 @@ class Solution {
           <div className="flex items-center gap-8 my-8 w-full justify-center bg-white/5 p-6 rounded-2xl border border-white/5">
             <div className="text-center">
               <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1 font-bold">Status</p>
-              <p className={`font-black text-2xl ${isWinner ? 'text-green-400' : 'text-red-400'}`}>
-                {isWinner ? 'Winner' : 'Eliminated'}
+              <p className={`font-black text-2xl ${isWinner ? 'text-green-400' : (isDraw ? 'text-blue-400' : 'text-red-400')}`}>
+                {isWinner ? 'Winner' : (isDraw ? 'Stalemate' : 'Eliminated')}
               </p>
             </div>
             <div className="h-10 w-px bg-white/10"></div>
@@ -252,7 +261,7 @@ class Solution {
                   if (myChange !== undefined) {
                     return (myChange > 0 ? '+' : '') + myChange;
                   }
-                  return isWinner ? '+20' : '-12';
+                  return isWinner ? '+20' : (isDraw ? '0' : '-12');
                 })()}
                 <Zap size={16} className={isWinner ? 'text-yellow-400 fill-yellow-400' : 'text-gray-600'} />
               </p>
