@@ -91,7 +91,10 @@ const DashboardContent = ({ isSocialOpen, setIsSocialOpen, onOpenSocial }) => {
               >
                 <Users size={16} className="text-sky-400" /> Friends
               </button>
-              <button className="px-5 py-2.5 bg-sky-500 hover:bg-sky-400 text-black rounded-xl text-sm font-bold shadow-[0_0_15px_rgba(14,165,233,0.3)] transition-all flex items-center gap-2">
+              <button
+                onClick={() => navigate('/matchmaking')}
+                className="px-5 py-2.5 bg-sky-500 hover:bg-sky-400 text-black rounded-xl text-sm font-bold shadow-[0_0_15px_rgba(14,165,233,0.3)] transition-all flex items-center gap-2"
+              >
                 <Zap size={16} fill="black" /> Quick Start
               </button>
             </div>

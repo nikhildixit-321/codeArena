@@ -333,89 +333,82 @@ io.on('connection', (socket) => {
       // Judge the code
       const judgment = await executeCode(code, match.question.testCases, language || 'javascript');
 
+      // Always update the code and execution time for the player
       match.players[playerIndex].code = code;
       match.players[playerIndex].executionTime = judgment.avgTime;
 
       if (judgment.allPassed) {
+        // WINNER FOUND! End match immediately.
         match.players[playerIndex].status = 'finished';
-        match.players[playerIndex].score = 100; // Correct
-
-        // --- NEW: Auto-submit to LeetCode ---
-        const userObj = await User.findById(userId);
-        if (userObj.settings?.autoSubmitEnabled && userObj.settings?.leetcodeSession && match.question.leetcodeSlug) {
-          console.log(`Auto-submitting to LeetCode for user ${userObj.username}...`);
-          try {
-            submitToLeetCode(
-              userObj.settings.leetcodeSession,
-              match.question.leetcodeSlug,
-              match.question.leetcodeId,
-              language || 'javascript',
-              code
-            ).catch(err => console.error("Auto-submit background failure:", err.message));
-          } catch (err) {
-            console.error("Auto-submit initiation failed:", err.message);
-          }
-        }
-      } else {
-        match.players[playerIndex].status = 'finished';
-        match.players[playerIndex].score = 0; // Wrong
-      }
-
-      // Check if all finished
-      const allFinished = match.players.every(p => p.status === 'finished');
-      if (allFinished) {
+        match.players[playerIndex].score = 100;
         match.status = 'completed';
+        match.winner = userId;
         match.endTime = new Date();
 
-        // Decide winner
-        const p1 = match.players[0];
-        const p2 = match.players[1];
+        // Update user ratings (Winner +20, Loser -12)
+        const winnerId = userId;
+        const opponentIndex = match.players.findIndex(p => p.user.toString() !== userId.toString());
+        const opponentId = match.players[opponentIndex].user;
 
-        let winnerId = null;
-        if (p1.score > p2.score) winnerId = p1.user;
-        else if (p2.score > p1.score) winnerId = p2.user;
-        else if (p1.score === p2.score && p1.score > 0) {
-          // Tie-break with execution time
-          winnerId = p1.executionTime < p2.executionTime ? p1.user : p2.user;
-        }
+        const winnerUser = await User.findById(winnerId);
+        const loserUser = await User.findById(opponentId);
 
-        match.winner = winnerId;
+        let ratingChanges = [];
 
-        // Update user ratings
-        if (winnerId) {
-          const winner = await User.findById(winnerId);
-          const loserId = match.players.find(p => p.user.toString() !== winnerId.toString()).user;
-          const loser = await User.findById(loserId);
+        if (winnerUser && loserUser) {
+          winnerUser.rating += 20;
+          winnerUser.matchesPlayed += 1;
+          winnerUser.matchesWon += 1;
+          await winnerUser.save();
 
-          winner.rating += 20; // New rule: +20 for win
-          winner.matchesPlayed += 1;
-          winner.matchesWon += 1;
+          loserUser.rating = Math.max(0, loserUser.rating - 12);
+          loserUser.matchesPlayed += 1;
+          await loserUser.save();
 
-          loser.rating -= 12; // New rule: -12 for loss
-          loser.matchesPlayed += 1;
+          ratingChanges = [
+            { userId: winnerId, change: 20 },
+            { userId: opponentId, change: -12 }
+          ];
 
-          await winner.save();
-          await loser.save();
+          // --- NEW: Auto-submit to LeetCode for winner ---
+          if (winnerUser.settings?.autoSubmitEnabled && winnerUser.settings?.leetcodeSession && match.question.leetcodeSlug) {
+            console.log(`Auto-submitting to LeetCode for winner ${winnerUser.username}...`);
+            try {
+              submitToLeetCode(
+                winnerUser.settings.leetcodeSession,
+                match.question.leetcodeSlug,
+                match.question.leetcodeId,
+                language || 'javascript',
+                code
+              ).catch(err => console.error("Auto-submit background failure:", err.message));
+            } catch (err) {
+              console.error("Auto-submit initiation failed:", err.message);
+            }
+          }
         }
 
         await match.save();
-        const opponentId = match.players.find(p => p.user.toString() !== userId.toString()).user;
-        const ratingChanges = winnerId ? [
-          { userId: winnerId, change: 20 },
-          { userId: winnerId.toString() === match.players[0].user.toString() ? match.players[1].user : match.players[0].user, change: -12 }
-        ] : [];
 
+        // Notify both players that the match has ended
         io.to(`match_${matchId}`).emit('matchEnded', {
           winner: winnerId,
           judgment,
           ratingChanges
         });
+
       } else {
-        await match.save();
+        // Incorrect submission - Just notify the user and allow them to try again
+        // We don't mark status as 'finished' so they can continue
         socket.emit('submissionResult', { judgment });
-        // Notify opponent
-        const opponent = match.players.find(p => p.user.toString() !== userId.toString());
-        io.to(opponent.socketId).emit('opponentSubmitted', { message: 'Opponent has submitted!' });
+
+        // Notify opponent that the user attempted
+        const opponentIndex = match.players.findIndex(p => p.user.toString() !== userId.toString());
+        const opponentSocketId = match.players[opponentIndex].socketId;
+        if (opponentSocketId) {
+          io.to(opponentSocketId).emit('opponentSubmitted', { message: 'Opponent has submitted!' });
+        }
+
+        await match.save();
       }
     } catch (err) {
       console.error('Submission error:', err);
