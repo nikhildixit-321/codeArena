@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useLocation, useNavigate, Link } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import socket from '../../api/socket';
@@ -8,7 +8,7 @@ import {
   Play, Send, Trophy, Timer, Zap, Shield, Swords,
   CheckCircle, XCircle, Terminal, Cpu, Code2,
   Minimize2, Maximize2, AlertCircle, ChevronLeft,
-  Layout, Settings, ArrowRight, Minus, Lightbulb
+  Layout, Settings, ArrowRight, Minus, Lightbulb, Loader2
 } from 'lucide-react';
 
 const MatchArena = () => {
@@ -76,6 +76,13 @@ class Solution {
   const [activeTab, setActiveTab] = useState('description');
   const [submissions, setSubmissions] = useState([]);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+
+  const [customInput, setCustomInput] = useState('');
+  const [consoleTab, setConsoleTab] = useState('results'); // 'results', 'testcase', or 'output'
+  const [runResult, setRunResult] = useState(null);
+  const [isRunning, setIsRunning] = useState(false);
+  const [isWaitingForInput, setIsWaitingForInput] = useState(false);
+  const inputRef = useRef(null);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 1024);
@@ -152,6 +159,7 @@ class Solution {
     socket.on('submissionResult', (data) => {
       setResult(data.judgment);
       setIsTerminalOpen(true);
+      setConsoleTab('results');
       setSubmissions(prev => [data.judgment, ...prev]); // Add to history
       setActiveTab('submissions'); // Switch to tab as requested
     });
@@ -187,7 +195,59 @@ class Solution {
     navigate('/dashboard');
   };
 
+  const handleRun = () => {
+    if (!code.trim()) return;
+    setIsTerminalOpen(true);
+    setConsoleTab('output');
+    setIsWaitingForInput(true);
+    setRunResult(`// Match Program Initialized.\n// Waiting for input data...\n// Enter input in the left panel and click 'Execute'.\n`);
+    // Focus input area
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 100);
+  };
+
+  const executeWithInput = async () => {
+    if (!code.trim() || isRunning) return;
+
+    setIsRunning(true);
+    setIsWaitingForInput(false);
+    setRunResult(prev => prev + `\n===== RUNNING =====\n`);
+
+    try {
+      const response = await api.post('/execute/run', {
+        code,
+        language,
+        stdin: customInput
+      });
+
+      if (response.data.error) {
+        setRunResult(prev => prev + `\n[Error]: ${response.data.error}`);
+      } else {
+        const { stdout, stderr, compile_output } = response.data;
+        let finalOutput = '';
+        if (compile_output) finalOutput += `\n[Compiler]:\n${compile_output}\n`;
+        if (stdout) finalOutput += stdout;
+        if (stderr) finalOutput += `\n[Runtime Error]:\n${stderr}`;
+        setRunResult(prev => prev + (finalOutput || '\n(No output returned)'));
+      }
+    } catch (err) {
+      setRunResult(prev => prev + `\n[Execution Error]: ${err.message}`);
+    } finally {
+      setIsRunning(false);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey && isWaitingForInput) {
+      e.preventDefault();
+      executeWithInput();
+    }
+  };
+
   const handleSubmit = () => {
+    setConsoleTab('results');
+    setIsTerminalOpen(true);
     // Simulate submission for UI demo if no backend connection
     if (!socket.connected) {
       setResult({
@@ -594,23 +654,33 @@ class Solution {
 
             {/* Quick Run FAB */}
             <button
-              onClick={handleSubmit}
-              className="absolute bottom-6 right-8 w-14 h-14 bg-sky-500 hover:bg-sky-400 rounded-full shadow-[0_0_30px_rgba(14,165,233,0.4)] flex items-center justify-center transition-all hover:scale-110 z-10 group"
+              onClick={handleRun}
+              disabled={isRunning}
+              className="absolute bottom-6 right-8 w-14 h-14 bg-rose-500 hover:bg-rose-400 rounded-full shadow-[0_0_30px_rgba(244,63,94,0.4)] flex items-center justify-center transition-all hover:scale-110 z-10 group disabled:opacity-50"
+              title="Run Code (Custom Input)"
             >
-              <Play size={24} fill="black" className="ml-1 text-black" />
+              {isRunning ? <Loader2 size={24} className="animate-spin text-black" /> : <Play size={24} fill="black" className="ml-1 text-black" />}
             </button>
           </div>
 
           {/* Console Panel (Collapsible) */}
           <div
-            className={`border-t border-white/5 bg-[#0a0a0f] flex flex-col transition-all duration-300 ease-in-out ${isTerminalOpen ? 'h-64' : 'h-10'}`}
+            className={`border-t border-white/5 bg-[#0a0a0f] flex flex-col transition-all duration-300 ease-in-out ${isTerminalOpen ? 'h-72' : 'h-10'}`}
           >
-            <div
-              className="h-10 flex items-center justify-between px-4 cursor-pointer hover:bg-white/5 border-b border-white/5"
-              onClick={() => setIsTerminalOpen(!isTerminalOpen)}
-            >
-              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-gray-400">
-                <Terminal size={14} className="text-sky-400" /> Execution Console
+            <div className="h-10 flex items-center justify-between px-4 border-b border-white/5 bg-[#0a0a0f]">
+              <div className="flex items-center h-full">
+                <button
+                  onClick={() => { setConsoleTab('results'); setIsTerminalOpen(true); }}
+                  className={`h-full px-4 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 ${consoleTab === 'results' ? 'border-sky-500 text-sky-500 bg-sky-500/5' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
+                >
+                  Results
+                </button>
+                <button
+                  onClick={() => { setConsoleTab('output'); setIsTerminalOpen(true); }}
+                  className={`h-full px-4 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 ${consoleTab === 'output' ? 'border-rose-500 text-rose-500 bg-rose-500/5' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
+                >
+                  Console
+                </button>
               </div>
               <div className="flex items-center gap-3">
                 {result && (
@@ -618,49 +688,90 @@ class Solution {
                     {result.allPassed ? 'PASSED' : 'FAILED'}
                   </span>
                 )}
-                {isTerminalOpen ? <Minimize2 size={14} className="text-gray-500" /> : <Maximize2 size={14} className="text-gray-500" />}
+                <button onClick={() => setIsTerminalOpen(!isTerminalOpen)} className="p-1.5 hover:bg-white/10 rounded transition-colors text-gray-500">
+                  {isTerminalOpen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+                </button>
               </div>
             </div>
 
             {/* Console Content */}
-            <div className="flex-1 overflow-y-auto p-4 custom-scrollbar bg-[#050505]/50">
-              {result ? (
-                <div className="space-y-4 animate-in slide-in-from-bottom-2 fade-in">
-                  <div className="flex items-center gap-4">
-                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${result.allPassed ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}>
-                      {result.allPassed ? <CheckCircle size={24} /> : <XCircle size={24} />}
-                    </div>
-                    <div>
-                      <h3 className={`font-bold text-lg ${result.allPassed ? 'text-green-400' : 'text-red-400'}`}>
-                        {result.allPassed ? 'All Test Cases Passed' : 'Solution Failed'}
-                      </h3>
-                      <p className="text-xs text-gray-500 font-mono mt-1">
-                        Total Execution Time: <span className="text-white">{result.totalTime}</span>
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-2">
-                    {result.results.map((r, i) => (
-                      <div key={i} className="bg-[#121218] border border-white/5 p-3 rounded-lg flex items-center justify-between group hover:border-white/10 transition-colors">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-2 h-2 rounded-full ${r.passed ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                          <span className="text-xs font-mono text-gray-400">Test Case #{i + 1}</span>
+            <div className="flex-1 overflow-hidden bg-[#050505]">
+              {consoleTab === 'results' ? (
+                <div className="h-full overflow-y-auto p-4 custom-scrollbar">
+                  {result ? (
+                    <div className="space-y-4 animate-in slide-in-from-bottom-2 fade-in">
+                      <div className="flex items-center gap-4">
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${result.allPassed ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-400'}`}>
+                          {result.allPassed ? <CheckCircle size={24} /> : <XCircle size={24} />}
                         </div>
-                        <div className="flex items-center gap-4">
-                          <span className="text-xs font-mono text-gray-500">{r.executionTime}ms</span>
-                          <span className={`text-xs font-bold ${r.passed ? 'text-green-500' : 'text-red-500'}`}>
-                            {r.passed ? 'PASS' : 'FAIL'}
-                          </span>
+                        <div>
+                          <h3 className={`font-bold text-lg ${result.allPassed ? 'text-green-400' : 'text-red-400'}`}>
+                            {result.allPassed ? 'All Test Cases Passed' : 'Solution Failed'}
+                          </h3>
+                          <p className="text-xs text-gray-500 font-mono mt-1">
+                            Total Execution Time: <span className="text-white">{result.totalTime}</span>
+                          </p>
                         </div>
                       </div>
-                    ))}
-                  </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        {result.results.map((r, i) => (
+                          <div key={i} className="bg-[#121218] border border-white/5 p-3 rounded-lg flex items-center justify-between group hover:border-white/10 transition-colors">
+                            <div className="flex items-center gap-3">
+                              <div className={`w-2 h-2 rounded-full ${r.passed ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                              <span className="text-xs font-mono text-gray-400">Test Case #{i + 1}</span>
+                            </div>
+                            <div className="flex items-center gap-4">
+                              <span className="text-xs font-mono text-gray-500">{r.executionTime}ms</span>
+                              <span className={`text-xs font-bold ${r.passed ? 'text-green-500' : 'text-red-500'}`}>
+                                {r.passed ? 'PASS' : 'FAIL'}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="h-full flex flex-col items-center justify-center text-gray-600 space-y-3 opacity-60">
+                      <Cpu size={32} />
+                      <p className="text-sm font-mono tracking-tight uppercase">Submit your code to see competition results</p>
+                    </div>
+                  )}
                 </div>
               ) : (
-                <div className="h-full flex flex-col items-center justify-center text-gray-600 space-y-3 opacity-60">
-                  <Cpu size={32} />
-                  <p className="text-sm font-mono">Ready to compile...</p>
+                <div className="h-full flex overflow-hidden">
+                  {/* Input Side */}
+                  <div className="w-1/3 border-r border-white/5 flex flex-col bg-white/1">
+                    <div className="px-3 py-1 bg-white/2 border-b border-white/5 flex items-center justify-between">
+                      <span className={`text-[9px] font-black uppercase tracking-tighter ${isWaitingForInput ? 'text-rose-500 animate-pulse' : 'text-gray-500'}`}>
+                        {isWaitingForInput ? 'Enter Stdin...' : 'Input'}
+                      </span>
+                      <button
+                        onClick={executeWithInput}
+                        disabled={isRunning}
+                        className={`text-[9px] font-black px-2 py-0.5 rounded transition-all uppercase ${isWaitingForInput ? 'bg-rose-500 text-black shadow-[0_0_10px_rgba(244,63,94,0.5)]' : 'text-rose-500 hover:text-rose-400'}`}
+                      >
+                        {isRunning ? '...' : (isWaitingForInput ? 'Enter' : 'Execute')}
+                      </button>
+                    </div>
+                    <textarea
+                      ref={inputRef}
+                      value={customInput}
+                      onKeyDown={handleKeyDown}
+                      onChange={(e) => setCustomInput(e.target.value)}
+                      placeholder="Type stdin..."
+                      className={`flex-1 p-4 bg-transparent border-none outline-none text-gray-300 font-mono text-[11px] resize-none placeholder:text-gray-800 transition-all ${isWaitingForInput ? 'bg-rose-500/5' : ''}`}
+                    />
+                  </div>
+                  {/* Output Side */}
+                  <div className="flex-1 flex flex-col">
+                    <div className="px-3 py-1 bg-white/2 border-b border-white/5">
+                      <span className="text-[9px] font-black text-gray-500 uppercase tracking-tighter">Output</span>
+                    </div>
+                    <div className="flex-1 p-5 font-mono text-[13px] overflow-y-auto custom-scrollbar text-gray-400">
+                      <pre className="whitespace-pre-wrap">{runResult || 'Execution results will appear here...'}</pre>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

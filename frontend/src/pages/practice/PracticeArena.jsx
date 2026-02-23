@@ -251,6 +251,8 @@ const PracticeArena = () => {
   const [isAiOpen, setIsAiOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('description');
   const [isFullScreen, setIsFullScreen] = useState(false);
+  const [isWaitingForInput, setIsWaitingForInput] = useState(false);
+  const inputRef = useRef(null);
 
   // Template logic
   const templates = {
@@ -334,26 +336,56 @@ const PracticeArena = () => {
     }
   }, [selectedQuestion, language]);
 
-  const handleRun = async () => {
+  const [customInput, setCustomInput] = useState('');
+  const [consoleTab, setConsoleTab] = useState('output'); // 'output' or 'testcase'
+
+  const handleRun = () => {
     if (!code.trim()) return;
+    setIsTerminalOpen(true);
+    setIsWaitingForInput(true);
+    setOutput(`// [Program initialized]\n// Waiting for input data...\n// Provide input in the left panel and click 'Execute' to run.\n`);
+    // Focus the input ref after a small delay
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 100);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey && isWaitingForInput) {
+      e.preventDefault();
+      executeWithInput();
+    }
+  };
+
+  const executeWithInput = async () => {
+    if (!code.trim() || isRunning) return;
+
     setIsRunning(true);
-    setOutput('Running...\n');
+    setIsWaitingForInput(false);
+    setOutput(prev => prev + `\n===== RUNNING =====\n`);
+
     try {
-      const response = await api.post('/execute/run', { code, language });
+      const response = await api.post('/execute/run', {
+        code,
+        language,
+        stdin: customInput
+      });
+
       if (response.data.error) {
-        setOutput(prev => prev + `Error: ${response.data.error}\n`);
+        setOutput(prev => prev + `\n[Error]: ${response.data.error}`);
       } else {
         const { stdout, stderr, compile_output } = response.data;
-        let result = '';
-        if (compile_output) result += `[Compile]\n${compile_output}\n`;
-        if (stdout) result += `[Output]\n${stdout}\n`;
-        if (stderr) result += `[Error]\n${stderr}\n`;
-        setOutput(result || 'No output.');
+        let finalOutput = '';
+        if (compile_output) finalOutput += `\n[Compiler]:\n${compile_output}\n`;
+        if (stdout) finalOutput += stdout;
+        if (stderr) finalOutput += `\n[Runtime Error]:\n${stderr}`;
+        setOutput(prev => prev + (finalOutput || '\n(No output returned)'));
       }
-    } catch (err) { setOutput(prev => prev + `Execution Error: ${err.message}\n`); }
-    finally {
+    } catch (err) {
+      setOutput(prev => prev + `\n[Execution Error]: ${err.message}`);
+    } finally {
       setIsRunning(false);
-      if (!isTerminalOpen) setIsTerminalOpen(true);
+      setIsTerminalOpen(true);
     }
   };
 
@@ -626,20 +658,53 @@ const PracticeArena = () => {
 
                 {/* Terminal Panel */}
                 <div className={`transition-all duration-300 ${isTerminalOpen ? 'h-[250px]' : 'h-10'} border-t border-white/5 bg-[#0a0a0f] flex flex-col`}>
-                  <div className="h-10 border-b border-white/5 flex items-center justify-between px-4 shrink-0 cursor-pointer hover:bg-white/2" onClick={() => setIsTerminalOpen(!isTerminalOpen)}>
-                    <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-gray-500">
-                      <Terminal size={14} />
-                      Terminal
+                  <div className="h-10 border-b border-white/5 flex items-center justify-between px-4 shrink-0 bg-[#0a0a0f] z-10">
+                    <div className="flex items-center h-full gap-2 text-[10px] font-black uppercase tracking-widest text-orange-500">
+                      <Terminal size={14} /> Terminal Console
                     </div>
                     <div className="flex items-center gap-2">
-                      <button onClick={(e) => { e.stopPropagation(); setOutput(''); }} className="p-1.5 hover:bg-white/10 rounded transition-colors text-gray-600"><X size={14} /></button>
-                      <button className="p-1.5 hover:bg-white/10 rounded transition-colors text-gray-600">
+                      <button onClick={() => setOutput('')} className="p-1 px-2 hover:bg-white/5 rounded text-[10px] font-bold text-gray-600 transition-colors uppercase">Clear Output</button>
+                      <button onClick={() => setIsTerminalOpen(!isTerminalOpen)} className="p-1.5 hover:bg-white/10 rounded transition-colors text-gray-600">
                         {isTerminalOpen ? <ChevronRight size={14} className="rotate-90" /> : <ChevronRight size={14} className="-rotate-90" />}
                       </button>
                     </div>
                   </div>
-                  <div className="flex-1 p-5 font-mono text-[13px] overflow-y-auto custom-scrollbar text-gray-400 bg-[#050505]">
-                    <pre className="whitespace-pre-wrap">{output || 'Execution results will appear here...'}</pre>
+
+                  {/* Split Content */}
+                  <div className="flex-1 overflow-hidden bg-[#050505] flex">
+                    {/* Input Side */}
+                    <div className="w-1/3 border-r border-white/3 flex flex-col bg-white/1">
+                      <div className="px-4 py-1.5 bg-white/2 border-b border-white/5 flex items-center justify-between">
+                        <span className={`text-[9px] font-black uppercase tracking-tighter ${isWaitingForInput ? 'text-orange-500 animate-pulse' : 'text-gray-500'}`}>
+                          {isWaitingForInput ? 'Enter Stdin...' : 'Program Input'}
+                        </span>
+                        <button
+                          onClick={executeWithInput}
+                          disabled={isRunning}
+                          className={`text-[9px] font-black px-2 py-0.5 rounded transition-colors uppercase ${isWaitingForInput ? 'bg-orange-500 text-black shadow-[0_0_10px_rgba(249,115,22,0.5)]' : 'text-orange-500 hover:text-orange-400'}`}
+                        >
+                          {isRunning ? '...' : (isWaitingForInput ? 'Run' : 'Execute')}
+                        </button>
+                      </div>
+                      <textarea
+                        ref={inputRef}
+                        value={customInput}
+                        onKeyDown={handleKeyDown}
+                        onChange={(e) => setCustomInput(e.target.value)}
+                        placeholder="Enter stdin here..."
+                        className={`flex-1 p-4 bg-transparent border-none outline-none text-gray-300 font-mono text-[11px] resize-none placeholder:text-gray-800 transition-all ${isWaitingForInput ? 'bg-orange-500/5' : ''}`}
+                      />
+                    </div>
+
+                    {/* Output Side */}
+                    <div className="flex-1 flex flex-col">
+                      <div className="px-4 py-1.5 bg-white/2 border-b border-white/5">
+                        <span className="text-[9px] font-black text-gray-500 uppercase tracking-tighter">System Output</span>
+                      </div>
+                      <div className="flex-1 p-5 font-mono text-[13px] overflow-y-auto custom-scrollbar text-gray-400">
+                        <pre className="whitespace-pre-wrap">{output || 'Execution results will appear here...'}</pre>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

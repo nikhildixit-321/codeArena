@@ -40,6 +40,10 @@ const IDE = () => {
   const [sidebarWidth, setSidebarWidth] = useState(260);
   const [activeTab, setActiveTab] = useState('editor'); // 'explorer', 'editor', 'terminal' (Mobile only)
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [customInput, setCustomInput] = useState('');
+  const [consoleTab, setConsoleTab] = useState('output');
+  const [isWaitingForInput, setIsWaitingForInput] = useState(false);
+  const inputRef = useRef(null);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -170,30 +174,50 @@ const IDE = () => {
     setContextMenu(null);
   }
 
-  const handleRun = async () => {
+  const handleRun = () => {
     if (!activeFile) return;
+    setTerminalHeight(260);
+    setIsWaitingForInput(true);
+    setOutput(`// ${activeFile.name} initialized.\n// Program is waiting for input...\n// Enter input in the left panel and click 'Execute'.\n`);
+    // Focus the input ref after a small delay
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 100);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey && isWaitingForInput) {
+      e.preventDefault();
+      executeWithInput();
+    }
+  };
+
+  const executeWithInput = async () => {
+    if (!activeFile || isRunning) return;
+
     setIsRunning(true);
-    setOutput(`Running ${activeFile.name}...\n`);
+    setIsWaitingForInput(false);
+    setOutput(prev => prev + `\n===== RUNNING =====\n`);
 
     try {
       const response = await api.post('/execute/run', {
         code: activeFile.content,
-        language: activeFile.language
+        language: activeFile.language,
+        stdin: customInput
       });
 
       if (response.data.error) {
-        setOutput(prev => prev + `Error: ${response.data.error}\n`);
+        setOutput(prev => prev + `\n[Error]: ${response.data.error}`);
       } else {
-        const { status, stdout, stderr, compile_output, time, memory } = response.data;
-        let outputText = `\n> Process finished with exit code ${status === 'Accepted' ? 0 : 1}\n`;
-        if (compile_output) outputText += `${compile_output}\n`;
-        if (stdout) outputText += `${stdout}\n`;
-        if (stderr) outputText += `${stderr}\n`;
-        if (time) outputText += `\n[Stats] Time: ${time}s | Memory: ${memory}KB`;
-        setOutput(prev => prev + outputText);
+        const { stdout, stderr, compile_output } = response.data;
+        let finalOutput = '';
+        if (compile_output) finalOutput += `\n[Compiler Message]:\n${compile_output}\n`;
+        if (stdout) finalOutput += stdout;
+        if (stderr) finalOutput += `\n[Runtime Error]:\n${stderr}`;
+        setOutput(prev => prev + (finalOutput || '\n(Program finished with no output)'));
       }
     } catch (err) {
-      setOutput(prev => prev + `Error: ${err.response?.data?.message || err.message}\nMake sure backend environment variables (RAPIDAPI_KEY) are set.`);
+      setOutput(prev => prev + `\n[Execution Error]: ${err.message}`);
     } finally {
       setIsRunning(false);
     }
@@ -373,7 +397,7 @@ const IDE = () => {
             )}
             {/* Terminal Header & Resizer */}
             <div
-              className="h-9 flex items-center justify-between px-4 border-b border-white/5 bg-[#0e0e12] select-none cursor-row-resize"
+              className="h-9 flex items-center justify-between border-b border-white/5 bg-[#0e0e12] select-none cursor-row-resize"
               onMouseDown={(e) => {
                 const startY = e.clientY;
                 const startHeight = terminalHeight;
@@ -388,29 +412,60 @@ const IDE = () => {
                 document.addEventListener('mouseup', handleMouseUp);
               }}
             >
-              <div className="flex items-center gap-4 text-xs font-bold text-gray-400 cursor-default">
-                <span className="flex items-center gap-2 text-sky-400 border-b-2 border-sky-400 pb-2.5 mt-2.5 px-1"><Terminal size={14} /> Console</span>
-                <span className="hover:text-white cursor-pointer px-1">Output</span>
-                <span className="hover:text-white cursor-pointer px-1">Debug Console</span>
+              <div className="flex items-center h-full px-4 text-[10px] font-black tracking-widest text-sky-400 gap-2 uppercase">
+                <Terminal size={14} /> Console
               </div>
-              <div className="flex items-center gap-3 cursor-pointer">
-                <span className="text-xs text-gray-600 hover:text-white transition-colors" onClick={() => setOutput('')}>Clear</span>
-                <Maximize2 size={12} className="text-gray-600 hover:text-white" onClick={() => setTerminalHeight(terminalHeight > 300 ? 40 : 400)} />
-                <X size={14} className="text-gray-600 hover:text-white" onClick={() => setTerminalHeight(40)} />
+              <div className="flex items-center gap-3 px-4">
+                <span className="text-[10px] uppercase font-black tracking-widest text-gray-600 hover:text-white cursor-pointer transition-colors" onClick={() => setOutput('')}>Clear Output</span>
+                <div className="h-4 w-px bg-white/5"></div>
+                <Maximize2 size={12} className="text-gray-600 hover:text-white cursor-pointer" onClick={() => setTerminalHeight(terminalHeight > 300 ? 100 : 400)} />
+                <X size={14} className="text-gray-600 hover:text-white cursor-pointer" onClick={() => setTerminalHeight(40)} />
               </div>
             </div>
 
-            {/* Terminal Output */}
-            <div className="flex-1 p-4 font-mono text-sm overflow-y-auto custom-scrollbar bg-[#050505]">
-              {output ? (
-                <pre className="whitespace-pre-wrap text-gray-300 leading-relaxed font-[Consolas]">
-                  {output}
-                </pre>
-              ) : (
-                <div className="text-gray-700 text-xs italic mt-2 ml-2">
-                                    // Terminal Ready. Click 'Run Code' to execute.
+            {/* Terminal Content - Split Layout */}
+            <div className="flex-1 bg-[#050505] flex overflow-hidden">
+              {/* Left Column: Input */}
+              <div className="w-1/3 border-r border-white/5 flex flex-col bg-[#0a0a0f]/50">
+                <div className="px-3 py-1 bg-white/2 border-b border-white/5 flex items-center justify-between">
+                  <span className={`text-[9px] font-black uppercase tracking-tighter ${isWaitingForInput ? 'text-sky-400 animate-pulse' : 'text-gray-500'}`}>
+                    {isWaitingForInput ? 'Waiting for Stdin...' : 'Program Input'}
+                  </span>
+                  <button
+                    onClick={executeWithInput}
+                    disabled={isRunning}
+                    className={`flex items-center gap-1.5 px-2 py-0.5 rounded transition-all text-[9px] font-black uppercase ${isWaitingForInput ? 'bg-sky-500 text-black shadow-[0_0_10px_rgba(14,165,233,0.5)]' : 'bg-sky-500/10 text-sky-400 hover:bg-sky-500/20'}`}
+                  >
+                    {isRunning ? '...' : (isWaitingForInput ? 'Enter' : 'Execute')} <ChevronRight size={10} />
+                  </button>
                 </div>
-              )}
+                <textarea
+                  ref={inputRef}
+                  value={customInput}
+                  onKeyDown={handleKeyDown}
+                  onChange={(e) => setCustomInput(e.target.value)}
+                  placeholder="Paste or type stdin here..."
+                  className={`flex-1 p-4 bg-transparent border-none outline-none text-gray-300 font-mono text-sm resize-none placeholder:text-gray-800 transition-all ${isWaitingForInput ? 'bg-sky-500/5' : ''}`}
+                />
+              </div>
+
+              {/* Right Column: Output */}
+              <div className="flex-1 flex flex-col">
+                <div className="px-3 py-1 bg-white/2 border-b border-white/5">
+                  <span className="text-[9px] font-black text-gray-500 uppercase tracking-tighter">System Output</span>
+                </div>
+                <div className="flex-1 p-4 font-mono text-sm overflow-y-auto custom-scrollbar">
+                  {output ? (
+                    <pre className="whitespace-pre-wrap text-gray-300 leading-relaxed font-[Consolas]">
+                      {output}
+                    </pre>
+                  ) : (
+                    <div className="text-gray-700 text-xs italic mt-2 ml-2">
+                        // Results will be displayed here after execution.
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 

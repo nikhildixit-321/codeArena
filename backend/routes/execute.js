@@ -2,6 +2,7 @@ const express = require('express');
 const axios = require('axios');
 const User = require('../models/User');
 const router = express.Router();
+const { wrapCode } = require('../utils/judge');
 
 // Judge0 CE - FREE Public API (No API Key Required)
 const JUDGE0_API_URL = 'https://ce.judge0.com';
@@ -37,8 +38,13 @@ router.post('/run', async (req, res) => {
       return res.status(400).json({ error: `Language '${language}' is not supported` });
     }
 
+    // Wrap code if it's a function-based snippet (LeetCode style)
+    // If stdin is provided but no main(), we might want to wrap anyway but it's tricky.
+    // For now, if user provides code with Solution class, wrapCode handles it.
+    const sourceCode = wrapCode(code, language);
+
     // Encode the source code and stdin in base64 as required by Judge0 free tier
-    const encodedCode = Buffer.from(code, 'utf8').toString('base64');
+    const encodedCode = Buffer.from(sourceCode, 'utf8').toString('base64');
     const encodedStdin = Buffer.from(stdin, 'utf8').toString('base64');
 
     // Submit code to Judge0 CE (FREE) - wait=true for sync execution
