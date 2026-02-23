@@ -580,6 +580,11 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('leaveQueue', () => {
+    waitingQueue = waitingQueue.filter(p => p.socketId !== socket.id);
+    console.log(`User left queue: ${socket.id}`);
+  });
+
   socket.on('disconnect', async () => {
     console.log('User disconnected:', socket.id);
     waitingQueue = waitingQueue.filter(p => p.socketId !== socket.id);
@@ -595,7 +600,7 @@ io.on('connection', (socket) => {
         const userId = socket.data.userId;
         console.log(`User ${userId} disconnected during active match ${activeMatch._id}. Waiting for grace period...`);
 
-        // 5-second grace period for reconnection
+        // 15-second grace period for reconnection
         setTimeout(async () => {
           const currentMatch = await Match.findById(activeMatch._id);
           if (!currentMatch || currentMatch.status !== 'active') return;
@@ -607,6 +612,10 @@ io.on('connection', (socket) => {
             console.log(`Grace period expired for user ${userId}. Ending match.`);
 
             const opponentPlayer = currentMatch.players.find(p => p.user.toString() !== userId?.toString());
+            const matchDurationSoFar = (new Date() - currentMatch.startTime) / 1000;
+
+            // Deciding penalty: if match just started (< 10s), maybe just cancel without heavy penalty?
+            // Actually, keep it for now as -20 to prevent dodge, but increase grace period.
 
             // Penalize the disconnected player
             const user = await User.findById(player.user);
@@ -646,7 +655,7 @@ io.on('connection', (socket) => {
           } else {
             console.log(`User ${userId} reconnected within grace period. Match continues.`);
           }
-        }, 5000);
+        }, 15000); // 15 seconds grace period
       }
     } catch (err) {
       console.error('Disconnect match cleanup error:', err);
