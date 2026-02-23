@@ -4,10 +4,10 @@ import socket from '../api/socket';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 
-const SocialModal = ({ isOpen, onClose, initialTab = 'friends' }) => {
+const SocialModal = ({ isOpen, onClose, initialTab = 'friends', initialSearchTerm = '' }) => {
     const { user } = useAuth();
     const [activeTab, setActiveTab] = useState(initialTab); // 'friends', 'search', 'requests'
-    const [searchTerm, setSearchTerm] = useState('');
+    const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
     const [searchResults, setSearchResults] = useState([]);
     const [friends, setFriends] = useState([]);
     const [requests, setRequests] = useState([]);
@@ -17,11 +17,26 @@ const SocialModal = ({ isOpen, onClose, initialTab = 'friends' }) => {
     useEffect(() => {
         if (isOpen) {
             setActiveTab(initialTab);
+            setSearchTerm(initialSearchTerm);
             fetchFriends();
             fetchRequests();
+            if (initialTab === 'search' && initialSearchTerm) {
+                performSearch(initialSearchTerm);
+            }
         }
-    }, [isOpen, initialTab]);
+    }, [isOpen, initialTab, initialSearchTerm]);
 
+    const performSearch = async (term) => {
+        if (!term.trim()) return;
+        setLoading(true);
+        try {
+            const res = await api.get(`/users/search?query=${term}`);
+            setSearchResults(res.data);
+        } catch (err) { console.error(err); }
+        finally { setLoading(false); }
+    };
+
+    const handleSearch = () => performSearch(searchTerm);
     const fetchFriends = async () => {
         try {
             const res = await api.get('/users/friends');
@@ -34,16 +49,6 @@ const SocialModal = ({ isOpen, onClose, initialTab = 'friends' }) => {
             const res = await api.get('/users/requests');
             setRequests(res.data);
         } catch (err) { console.error(err); }
-    };
-
-    const handleSearch = async () => {
-        if (!searchTerm.trim()) return;
-        setLoading(true);
-        try {
-            const res = await api.get(`/users/search?query=${searchTerm}`);
-            setSearchResults(res.data);
-        } catch (err) { console.error(err); }
-        finally { setLoading(false); }
     };
 
     const sendRequest = async (userId) => {

@@ -12,6 +12,25 @@ import api from '../../api/axios';
 import DOMPurify from 'dompurify';
 import MainLayout from '../../components/MainLayout';
 
+const SkeletonRow = () => (
+  <tr className="border-b border-white/2 animate-pulse">
+    <td className="px-4 py-4"><div className="w-4 h-4 bg-white/5 rounded"></div></td>
+    <td className="px-2 py-4">
+      <div className="w-3/4 h-3 bg-white/10 rounded mb-2"></div>
+      <div className="flex gap-1">
+        <div className="w-12 h-3 bg-white/5 rounded"></div>
+        <div className="w-12 h-3 bg-white/5 rounded"></div>
+      </div>
+    </td>
+    <td className="px-2 py-4 text-center items-center flex justify-center">
+      <div className="w-14 h-4 bg-white/10 rounded-full mt-2"></div>
+    </td>
+    <td className="px-4 py-4 text-right">
+      <div className="w-10 h-3 bg-white/5 rounded ml-auto"></div>
+    </td>
+  </tr>
+);
+
 const ExplorerPane = ({
   platform, searchTerm, setSearchTerm, difficultyFilter, setDifficultyFilter,
   selectedTopic, setSelectedTopic, topics, totalQuestions, dailyChallenge,
@@ -127,43 +146,53 @@ const ExplorerPane = ({
           </tr>
         </thead>
         <tbody>
-          {questions
-            .filter(q => q.title?.toLowerCase().includes(searchTerm.toLowerCase()) && (difficultyFilter === 'all' || q.difficulty === difficultyFilter))
-            .map((q, i) => {
-              const isLast = questions.length === i + 1;
-              return (
-                <tr
-                  key={q.id || i}
-                  ref={isLast ? lastQuestionRef : null}
-                  onClick={() => handleSelectQuestion(q)}
-                  className={`border-b border-white/2 hover:bg-white/3 cursor-pointer group transition-colors ${selectedQuestion?.id === q.id ? 'bg-orange-500/5' : ''}`}
-                >
-                  <td className="px-4 py-4 text-xs text-gray-600 font-mono">{i + 1}</td>
-                  <td className="px-2 py-4">
-                    <div className="text-xs font-bold text-gray-300 group-hover:text-white transition-colors mb-1">{q.title}</div>
-                    <div className="flex gap-1">
-                      {q.tags?.slice(0, 2).map(tag => (
-                        <span key={tag} className="text-[9px] text-gray-600 bg-white/5 px-1.5 py-0.5 rounded border border-white/5">{tag}</span>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="px-2 py-4 text-center">
-                    <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ${q.difficulty === 'Easy' ? 'bg-emerald-500/10 text-emerald-400' :
-                      q.difficulty === 'Medium' ? 'bg-amber-500/10 text-amber-400' :
-                        'bg-rose-500/10 text-rose-400'
-                      }`}>
-                      {q.difficulty}
-                    </span>
-                  </td>
-                  <td className="px-4 py-4 text-right text-[10px] text-gray-600 font-mono">
-                    {q.stats?.acRate || '45.9%'}
-                  </td>
-                </tr>
-              );
-            })
-          }
-          {loading && (
-            <tr><td colSpan="4" className="py-8 text-center"><Loader2 className="animate-spin inline text-orange-500" /></td></tr>
+          {questions.length === 0 && loading && (
+            [...Array(10)].map((_, i) => <SkeletonRow key={i} />)
+          )}
+          {questions.map((q, i) => {
+            const isLast = questions.length === i + 1;
+            return (
+              <tr
+                key={q.id || i}
+                ref={isLast ? lastQuestionRef : null}
+                onClick={() => handleSelectQuestion(q)}
+                className={`border-b border-white/2 hover:bg-white/3 cursor-pointer group transition-colors ${selectedQuestion?.id === q.id ? 'bg-orange-500/5' : ''}`}
+              >
+                <td className="px-4 py-4 text-xs text-gray-600 font-mono">{i + 1}</td>
+                <td className="px-2 py-4">
+                  <div className="text-xs font-bold text-gray-300 group-hover:text-white transition-colors mb-1">{q.title}</div>
+                  <div className="flex gap-1">
+                    {q.tags?.slice(0, 2).map(tag => (
+                      <span key={tag} className="text-[9px] text-gray-600 bg-white/5 px-1.5 py-0.5 rounded border border-white/5">{tag}</span>
+                    ))}
+                  </div>
+                </td>
+                <td className="px-2 py-4 text-center">
+                  <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ${q.difficulty === 'Easy' ? 'bg-emerald-500/10 text-emerald-400' :
+                    q.difficulty === 'Medium' ? 'bg-amber-500/10 text-amber-400' :
+                      'bg-rose-500/10 text-rose-400'
+                    }`}>
+                    {q.difficulty}
+                  </span>
+                </td>
+                <td className="px-4 py-4 text-right text-[10px] text-gray-600 font-mono">
+                  {q.stats?.acRate || '45.9%'}
+                </td>
+              </tr>
+            );
+          })}
+          {loading && questions.length > 0 && (
+            [...Array(5)].map((_, i) => <SkeletonRow key={`more-${i}`} />)
+          )}
+          {!loading && questions.length === 0 && (
+            <tr>
+              <td colSpan="4" className="py-20 text-center">
+                <div className="flex flex-col items-center gap-3 opacity-20">
+                  <Search size={40} />
+                  <p className="text-sm font-bold uppercase tracking-widest">No questions found</p>
+                </div>
+              </td>
+            </tr>
           )}
         </tbody>
       </table>
@@ -192,6 +221,13 @@ const PracticeArena = () => {
   const [selectedTopic, setSelectedTopic] = useState(null);
   const [isExplorerOpen, setIsExplorerOpen] = useState(true);
   const [isDescriptionOpen, setIsDescriptionOpen] = useState(false);
+
+  // Check for global search term from Navbar
+  useEffect(() => {
+    if (location.state?.globalSearchTerm) {
+      setSearchTerm(location.state.globalSearchTerm);
+    }
+  }, [location.state]);
 
   // Sync platform with URL
   useEffect(() => {
@@ -231,8 +267,11 @@ const PracticeArena = () => {
   }, [platform]);
 
   useEffect(() => {
-    if (platform === 'leetcode' && selectedTopic) fetchQuestions(1);
-  }, [selectedTopic]);
+    const delayDebounceFn = setTimeout(() => {
+      fetchQuestions(1);
+    }, 300);
+    return () => clearTimeout(delayDebounceFn);
+  }, [selectedTopic, searchTerm, difficultyFilter]);
 
   const fetchTopics = async () => {
     try {
@@ -253,8 +292,8 @@ const PracticeArena = () => {
     setLoading(true);
     setCurrentPage(page);
     try {
-      let url = `/questions/${platform}?page=${page}&limit=50`;
-      if (selectedTopic && platform === 'leetcode') url = `/questions/leetcode/topic/${selectedTopic}?page=${page}&limit=50`;
+      let url = `/questions/${platform}?page=${page}&limit=50&search=${encodeURIComponent(searchTerm)}&difficulty=${difficultyFilter}`;
+      if (selectedTopic && platform === 'leetcode') url = `/questions/leetcode/topic/${selectedTopic}?page=${page}&limit=50&search=${encodeURIComponent(searchTerm)}&difficulty=${difficultyFilter}`;
 
       const res = await api.get(url);
       const data = res.data;
@@ -342,8 +381,21 @@ const PracticeArena = () => {
     }
   };
 
-  const handleSelectQuestion = (q) => {
-    setSelectedQuestion(q);
+  const handleSelectQuestion = async (q) => {
+    if (platform === 'leetcode' && q.titleSlug) {
+      setLoading(true);
+      try {
+        const res = await api.get(`/questions/leetcode/details/${q.titleSlug}`);
+        setSelectedQuestion(res.data);
+      } catch (err) {
+        console.error("Error fetching question details:", err);
+        setSelectedQuestion(q); // Fallback to list data if details fail
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      setSelectedQuestion(q);
+    }
     setIsExplorerOpen(false);
     setIsDescriptionOpen(true);
   };

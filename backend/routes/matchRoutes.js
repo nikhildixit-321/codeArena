@@ -18,6 +18,9 @@ router.get('/active', auth, matchController.getActiveMatches);
 // Get Leaderboard
 router.get('/leaderboard', matchController.getLeaderboard);
 
+// Get Match History for User
+router.get('/history', auth, matchController.getMatchHistory);
+
 // Get Match Details
 router.get('/:matchId', auth, matchController.getMatchDetails);
 

@@ -10,16 +10,17 @@ import {
   Users, PlayCircle
 } from 'lucide-react';
 import SocialModal from '../../components/SocialModal';
-import { formatAvatarUrl } from '../../utils/formatters';
+import { formatAvatarUrl, getRank } from '../../utils/formatters';
 
 const DashboardContent = ({ isSocialOpen, setIsSocialOpen, onOpenSocial }) => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [stats, setStats] = useState({
-    rating: 1200,
+    rating: 0,
     matchesPlayed: 0,
     matchesWon: 0,
-    streak: 0
+    streak: 0,
+    points: 0
   });
   const [liveMatches, setLiveMatches] = useState([]);
   const [loadingMatches, setLoadingMatches] = useState(true);
@@ -92,7 +93,7 @@ const DashboardContent = ({ isSocialOpen, setIsSocialOpen, onOpenSocial }) => {
                 Good Evening, <span className="text-transparent bg-clip-text bg-linear-to-r from-sky-400 to-indigo-500">{user?.username || 'Coder'}</span>
               </h1>
               <p className="text-gray-500 mt-2 text-sm max-w-md">
-                Your current rank is <span className="text-white font-bold">Grandmaster</span>. Keep pushing to reach the top 100.
+                Your current rank is <span className="text-white font-bold">{getRank(stats.rating)}</span>. Keep pushing to reach the top.
               </p>
             </div>
             <div className="flex gap-3">
@@ -119,7 +120,7 @@ const DashboardContent = ({ isSocialOpen, setIsSocialOpen, onOpenSocial }) => {
               icon={Zap}
               color="text-amber-400"
               bg="bg-amber-400/10"
-              trend="+42 this week"
+              trend="Global Rank"
             />
             <StatsCard
               label="Matches Won"
@@ -139,11 +140,11 @@ const DashboardContent = ({ isSocialOpen, setIsSocialOpen, onOpenSocial }) => {
             />
             <StatsCard
               label="Daily Streak"
-              value="12 Days"
+              value={`${stats.streak} Days`}
               icon={Flame}
               color="text-rose-500"
               bg="bg-rose-500/10"
-              trend="On Fire!"
+              trend="Current Streak"
             />
           </div>
 
@@ -351,16 +352,23 @@ const ActionCard = ({ title, desc, icon: Icon, color, onClick }) => (
 const Home = () => {
   const [isSocialOpen, setIsSocialOpen] = useState(false);
   const [initialSocialTab, setInitialSocialTab] = useState('friends');
+  const [initialSearchTerm, setInitialSearchTerm] = useState('');
 
-  const openSocial = (tab = 'friends') => {
+  const openSocial = (tab = 'friends', term = '') => {
     setInitialSocialTab(tab);
+    setInitialSearchTerm(term);
     setIsSocialOpen(true);
   };
 
   return (
-    <MainLayout navbar={<HomeNavbar onOpenSocial={() => openSocial('requests')} />}>
-      <DashboardContent isSocialOpen={isSocialOpen} setIsSocialOpen={setIsSocialOpen} onOpenSocial={() => openSocial('friends')} />
-      <SocialModal isOpen={isSocialOpen} onClose={() => setIsSocialOpen(false)} initialTab={initialSocialTab} />
+    <MainLayout navbar={<HomeNavbar onOpenSocial={openSocial} />}>
+      <DashboardContent isSocialOpen={isSocialOpen} setIsSocialOpen={setIsSocialOpen} onOpenSocial={openSocial} />
+      <SocialModal
+        isOpen={isSocialOpen}
+        onClose={() => setIsSocialOpen(false)}
+        initialTab={initialSocialTab}
+        initialSearchTerm={initialSearchTerm}
+      />
     </MainLayout>
   );
 };

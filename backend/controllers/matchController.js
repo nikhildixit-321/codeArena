@@ -151,7 +151,6 @@ exports.getActiveMatches = async (req, res) => {
     }
 };
 
-// Get Match Details by ID
 exports.getMatchDetails = async (req, res) => {
     try {
         const match = await Match.findById(req.params.matchId)
@@ -159,12 +158,28 @@ exports.getMatchDetails = async (req, res) => {
             .populate('players.user', 'username rating avatar');
 
         if (!match) return res.status(404).json({ error: 'Match not found' });
-
-        // Return match data structure similar to socket event
-        // Identify opponent based on req.user (if auth middleware sets req.user)
-        // For simplicity, return full match object and let frontend parse
         res.json(match);
     } catch (err) {
         res.status(500).json({ error: err.message });
+    }
+};
+
+// Get Match History for User
+exports.getMatchHistory = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const matches = await Match.find({
+            'players.user': userId,
+            status: 'completed'
+        })
+            .sort({ createdAt: -1 })
+            .populate('question', 'title difficulty')
+            .populate('players.user', 'username avatar rating')
+            .limit(20);
+
+        res.json(matches);
+    } catch (err) {
+        console.error('Error fetching match history:', err);
+        res.status(500).json({ error: 'Failed to fetch match history' });
     }
 };
