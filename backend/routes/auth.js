@@ -80,7 +80,7 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// Login with google 
+// Login
 router.post('/login', (req, res, next) => {
   passport.authenticate('local', { session: false }, (err, user, info) => {
     if (err) return next(err);
@@ -113,7 +113,6 @@ router.get('/google/callback',
       const state = req.query.state ? JSON.parse(Buffer.from(req.query.state, 'base64').toString()) : {};
       const targetOrigin = (state.origin && state.origin !== 'undefined') ? state.origin : (process.env.FRONTEND_URL.split(',')[0]);
 
-      // Clean up targetOrigin to remove trailing slash if any
       const cleanOrigin = targetOrigin.replace(/\/$/, '');
 
       const token = generateToken(req.user);
@@ -163,30 +162,25 @@ router.get('/me', authenticateToken, async (req, res) => {
     let lastActive = user.streak?.lastActive ? new Date(user.streak.lastActive) : null;
     if (lastActive) lastActive.setHours(0, 0, 0, 0);
 
-    // If last active was yesterday, increment streak
     if (lastActive) {
       const diffTime = Math.abs(today - lastActive);
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
       if (diffDays === 1) {
-        // Continued streak
         if (user.streak.lastActive.getDate() !== new Date().getDate()) {
           user.streak.current += 1;
           user.streak.lastActive = new Date();
-          user.points += 10; // Bonus for streak
+          user.points += 10;
           await user.save();
         }
       } else if (diffDays > 1) {
-        // Broken streak
         user.streak.current = 1;
         user.streak.lastActive = new Date();
         await user.save();
       }
-      // If diffDays === 0, already logged in today, do nothing
     } else {
-      // First time
       user.streak = { current: 1, lastActive: new Date() };
-      user.points += 5; // First login bonus
+      user.points += 5;
       await user.save();
     }
 
