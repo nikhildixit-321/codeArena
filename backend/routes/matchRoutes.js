@@ -10,10 +10,10 @@ router.get('/question/random', auth, matchController.getRandomQuestion);
 router.post('/result', auth, matchController.submitMatchResult);
 
 // Get Daily Challenge
-router.get('/daily', auth, matchController.getDailyChallenge);
+router.get('/daily', matchController.getDailyChallenge);
 
 // Get Active Matches (Live)
-router.get('/active', auth, matchController.getActiveMatches);
+router.get('/active', matchController.getActiveMatches);
 
 // Get Leaderboard
 router.get('/leaderboard', matchController.getLeaderboard);

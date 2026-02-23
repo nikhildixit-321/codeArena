@@ -17,4 +17,19 @@ instance.interceptors.request.use((config) => {
   return config;
 });
 
+// Handle response errors (like 401)
+instance.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      localStorage.removeItem('token');
+      // Force reload or redirect if needed
+      if (window.location.pathname !== '/') {
+        window.location.href = '/';
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 export default instance;

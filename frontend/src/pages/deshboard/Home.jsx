@@ -41,6 +41,7 @@ const DashboardContent = ({ isSocialOpen, setIsSocialOpen, onOpenSocial }) => {
     }
 
     const fetchData = async () => {
+      if (!user) return; // Don't fetch if not logged in
       try {
         // 2. Fetch Active Matches
         const liveRes = await api.get('/match/active');
@@ -71,7 +72,11 @@ const DashboardContent = ({ isSocialOpen, setIsSocialOpen, onOpenSocial }) => {
       }
     };
 
-    fetchData();
+    if (user) {
+      fetchData();
+    } else {
+      setLoadingMatches(false); // Stop loading if no user
+    }
   }, [user]);
 
   return (
