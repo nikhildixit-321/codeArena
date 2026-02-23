@@ -12,6 +12,7 @@ import {
   Medal, Clock, CheckCircle, Award, LogOut
 } from 'lucide-react';
 import EditProfile from './EditProfile';
+import { getRank } from '../../utils/formatters';
 
 // Stat Card Component
 const StatCard = ({ icon: Icon, label, value, color }) => {
@@ -51,14 +52,26 @@ const Profile = () => {
     confirmPassword: ''
   });
 
-  // Mock game history (in a real app, fetch from API)
-  const [gameHistory] = useState([
-    { id: 1, opponent: 'Player_123', result: 'win', score: '2-0', date: '2026-02-10', rating: 1250 },
-    { id: 2, opponent: 'Coder_X', result: 'loss', score: '0-2', date: '2026-02-09', rating: 1230 },
-    { id: 3, opponent: 'Dev_Master', result: 'win', score: '2-1', date: '2026-02-08', rating: 1245 },
-    { id: 4, opponent: 'Algo_King', result: 'win', score: '2-0', date: '2026-02-07', rating: 1220 },
-    { id: 5, opponent: 'Bug_Hunter', result: 'loss', score: '1-2', date: '2026-02-06', rating: 1205 },
-  ]);
+  // State for real match history
+  const [matchHistory, setMatchHistory] = useState([]);
+  const [fetchingHistory, setFetchingHistory] = useState(false);
+
+  useEffect(() => {
+    const fetchHistory = async () => {
+      setFetchingHistory(true);
+      try {
+        const res = await api.get('/match/history');
+        setMatchHistory(res.data);
+      } catch (err) {
+        console.error('History fetch error:', err);
+      } finally {
+        setFetchingHistory(false);
+      }
+    };
+    if (user && activeTab === 'history') {
+      fetchHistory();
+    }
+  }, [user, activeTab]);
 
   // Handler functions
 
@@ -114,15 +127,15 @@ const Profile = () => {
     );
   }
 
-  // Calculate dynamic stats from user object if available
+  // Calculate dynamic stats from user object
   const stats = {
-    totalMatches: user.matchesPlayed || 48,
-    wins: user.matchesWon || 32,
-    losses: (user.matchesPlayed || 48) - (user.matchesWon || 32),
-    winRate: user.matchesPlayed ? `${Math.round((user.matchesWon / user.matchesPlayed) * 100)}%` : '67%',
-    currentRating: user.rating || 1200,
-    highestRating: user.highestRating || 1320, // Assuming this field might exist later
-    streak: user.streak || 3
+    totalMatches: user.matchesPlayed || 0,
+    wins: user.matchesWon || 0,
+    losses: (user.matchesPlayed || 0) - (user.matchesWon || 0),
+    winRate: user.matchesPlayed ? `${Math.round((user.matchesWon / user.matchesPlayed) * 100)}%` : '0%',
+    currentRating: user.rating || 600,
+    highestRating: user.rating || 600,
+    streak: user.streak?.current || 0
   };
 
   return (
@@ -172,7 +185,7 @@ const Profile = () => {
               <div className="flex items-center justify-center md:justify-start gap-4 mb-1">
                 <h1 className="text-3xl font-bold">{user.username}</h1>
                 <span className="px-3 py-1 rounded-full bg-yellow-500/10 text-yellow-500 text-xs font-bold border border-yellow-500/20 flex items-center gap-1">
-                  <Trophy size={12} /> Gold II
+                  <Trophy size={12} /> {getRank(stats.currentRating)}
                 </span>
               </div>
               <div className="flex items-center justify-center md:justify-start gap-2 text-muted-foreground mb-4">
@@ -348,31 +361,42 @@ const Profile = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
-                      {gameHistory.map((game, i) => (
-                        <tr key={game.id} className="hover:bg-secondary/20 transition-colors">
-                          <td className="px-6 py-4">
-                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md font-bold text-xs capitalize ${game.result === 'win'
-                              ? 'bg-green-500/10 text-green-500 border border-green-500/20'
-                              : 'bg-destructive/10 text-destructive border border-destructive/20'
-                              }`}>
-                              {game.result === 'win' ? <Trophy size={12} /> : <X size={12} />}
-                              {game.result}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 font-medium flex items-center gap-2">
-                            <div className="w-6 h-6 rounded-full bg-secondary flex items-center justify-center text-xs">
-                              {game.opponent[0]}
-                            </div>
-                            {game.opponent}
-                          </td>
-                          <td className="px-6 py-4 font-mono">{game.score}</td>
-                          <td className="px-6 py-4 text-muted-foreground hidden sm:table-cell">{game.date}</td>
-                          <td className={`px-6 py-4 text-right font-bold ${game.result === 'win' ? 'text-green-500' : 'text-destructive'
-                            }`}>
-                            {game.result === 'win' ? '+25' : '-25'}
-                          </td>
-                        </tr>
-                      ))}
+                      {fetchingHistory ? (
+                        <tr><td colSpan="5" className="px-6 py-10 text-center text-muted-foreground italic">Fetching your battle history...</td></tr>
+                      ) : matchHistory.length > 0 ? (
+                        matchHistory.map((match, i) => {
+                          const playerInfo = match.players.find(p => p.user?._id === user._id);
+                          const opponentInfo = match.players.find(p => p.user?._id !== user._id);
+                          const isWinner = match.winner === user._id;
+
+                          return (
+                            <tr key={match._id || i} className="hover:bg-secondary/20 transition-colors">
+                              <td className="px-6 py-4">
+                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md font-bold text-xs capitalize ${isWinner
+                                  ? 'bg-green-500/10 text-green-500 border border-green-500/20'
+                                  : 'bg-destructive/10 text-destructive border border-destructive/20'
+                                  }`}>
+                                  {isWinner ? <Trophy size={12} /> : <X size={12} />}
+                                  {isWinner ? 'Victory' : 'Defeat'}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 font-medium flex items-center gap-2">
+                                <div className="w-6 h-6 rounded-full bg-secondary flex items-center justify-center text-[10px] overflow-hidden">
+                                  {opponentInfo?.user?.avatar ? <img src={opponentInfo.user.avatar} className="w-full h-full object-cover" /> : (opponentInfo?.user?.username?.[0] || '?')}
+                                </div>
+                                {opponentInfo?.user?.username || 'Unknown'}
+                              </td>
+                              <td className="px-6 py-4 font-mono text-xs">{playerInfo?.score || 0} pts</td>
+                              <td className="px-6 py-4 text-muted-foreground hidden sm:table-cell">{new Date(match.createdAt).toLocaleDateString()}</td>
+                              <td className={`px-6 py-4 text-right font-bold ${isWinner ? 'text-green-500' : 'text-destructive'}`}>
+                                {isWinner ? '+20' : '-12'}
+                              </td>
+                            </tr>
+                          );
+                        })
+                      ) : (
+                        <tr><td colSpan="5" className="px-6 py-10 text-center text-muted-foreground">No matches played yet. Start a duel to see history!</td></tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
