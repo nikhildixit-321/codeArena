@@ -50,11 +50,17 @@ const MatchmakingContent = () => {
     });
 
     return () => {
+      socket.emit('leaveQueue'); // Clean up from queue
       socket.off('waiting');
       socket.off('matchFound');
       clearInterval(timer);
     };
   }, [user, navigate]);
+
+  const handleCancelSearch = () => {
+    socket.emit('leaveQueue');
+    navigate('/dashboard');
+  };
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -136,7 +142,7 @@ const MatchmakingContent = () => {
           </div>
 
           <button
-            onClick={() => navigate('/dashboard')}
+            onClick={handleCancelSearch}
             className="group flex items-center gap-2 px-8 py-4 bg-[#1a1a20] hover:bg-red-500/10 hover:border-red-500/30 border border-white/5 rounded-2xl transition-all font-bold text-gray-400 hover:text-red-400 w-full justify-center"
           >
             <X size={20} />

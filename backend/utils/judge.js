@@ -28,14 +28,71 @@ const executeCode = async (code, testCases, language) => {
       // We print the result
       sourceCode += `\nimport json\nprint(solution(${tc.input}))`;
     } else if (language === 'cpp') {
-      // C++ is harder to wrap dynamically without a proper main template.
-      // For now, we assume user writes a full solution or we skip C++ wrapping complexity 
-      // and expect user to read from stdin in main().
-      // BUT our frontend provides class Solution... 
-      // Let's simple disable C++ auto-wrapping and expect user to write main? 
-      // No, user expects Leetcode style.
-      // Doing this properly requires a robust C++ AST or template.
-      // Compromise: We might fail C++ for "function style" inputs unless we strictly format inputs.
+      // Don't wrap if the user already provided a main function
+      if (!code.includes('main(') && !code.includes('main (')) {
+        const isClass = code.includes('class Solution');
+        // Try to find the function name: vector<int> twoSum(...) or int countDays(...)
+        // We look for a pattern like: ReturnType FunctionName (
+        const functionMatch = code.match(/(?:vector<[^>]+>|int|long|string|void|double|float|bool|auto|char)\s+([a-zA-Z0-9_]+)\s*\(/);
+        const functionName = functionMatch ? functionMatch[1] : 'solution';
+
+        sourceCode = `#include <iostream>
+#include <vector>
+#include <string>
+#include <algorithm>
+#include <unordered_map>
+#include <map>
+#include <set>
+#include <queue>
+#include <stack>
+#include <math.h>
+
+using namespace std;
+
+${code}
+
+// Helper to print results
+template<typename T>
+void printRes(const T& t) { cout << t << endl; }
+
+template<typename T>
+void printRes(const vector<T>& v) {
+    cout << "[";
+    for(size_t i = 0; i < v.size(); ++i) {
+        cout << v[i] << (i == v.size() - 1 ? "" : ",");
+    }
+    cout << "]" << endl;
+}
+
+int main() {
+    ${isClass ? 'Solution sol;' : ''}
+    try {
+        auto result = ${isClass ? 'sol.' : ''}${functionName}(${tc.input.replace(/\[/g, '{').replace(/\]/g, '}')});
+        printRes(result);
+    } catch (...) {
+        return 1;
+    }
+    return 0;
+}
+`;
+      }
+    } else if (language === 'java') {
+      if (!code.includes('public static void main')) {
+        // Simple Java wrapper - assumes class Solution
+        sourceCode = `import java.util.*;
+import java.util.stream.*;
+
+public class Main {
+    ${code}
+    
+    public static void main(String[] args) {
+        Solution sol = new Solution();
+        // Java is much harder to parse dynamically without more logic
+        // For now we assume a very basic call or user provides main
+    }
+}
+`;
+      }
     }
 
     // Encode
