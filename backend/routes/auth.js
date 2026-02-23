@@ -100,22 +100,53 @@ router.get('/logout', (req, res) => {
 });
 
 // Google Auth
-router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+router.get('/google', (req, res, next) => {
+  const origin = req.query.origin || req.get('referer') || process.env.FRONTEND_URL;
+  const state = Buffer.from(JSON.stringify({ origin })).toString('base64');
+  passport.authenticate('google', { scope: ['profile', 'email'], state, session: false })(req, res, next);
+});
+
 router.get('/google/callback',
-  passport.authenticate('google', { failureRedirect: `${process.env.FRONTEND_URL}/login`, session: false }),
+  passport.authenticate('google', { failureRedirect: `/login`, session: false }),
   (req, res) => {
-    const token = generateToken(req.user);
-    res.redirect(`${process.env.FRONTEND_URL}/auth/callback?token=${token}`);
+    try {
+      const state = req.query.state ? JSON.parse(Buffer.from(req.query.state, 'base64').toString()) : {};
+      const targetOrigin = (state.origin && state.origin !== 'undefined') ? state.origin : (process.env.FRONTEND_URL.split(',')[0]);
+
+      // Clean up targetOrigin to remove trailing slash if any
+      const cleanOrigin = targetOrigin.replace(/\/$/, '');
+
+      const token = generateToken(req.user);
+      res.redirect(`${cleanOrigin}/auth/callback?token=${token}`);
+    } catch (err) {
+      console.error('OAuth Callback Error:', err);
+      res.redirect(`${process.env.FRONTEND_URL.split(',')[0]}/login`);
+    }
   }
 );
 
 // GitHub Auth
-router.get('/github', passport.authenticate('github', { scope: ['user:email'] }));
+router.get('/github', (req, res, next) => {
+  const origin = req.query.origin || req.get('referer') || process.env.FRONTEND_URL;
+  const state = Buffer.from(JSON.stringify({ origin })).toString('base64');
+  passport.authenticate('github', { scope: ['user:email'], state, session: false })(req, res, next);
+});
+
 router.get('/github/callback',
-  passport.authenticate('github', { failureRedirect: `${process.env.FRONTEND_URL}/login`, session: false }),
+  passport.authenticate('github', { failureRedirect: `/login`, session: false }),
   (req, res) => {
-    const token = generateToken(req.user);
-    res.redirect(`${process.env.FRONTEND_URL}/auth/callback?token=${token}`);
+    try {
+      const state = req.query.state ? JSON.parse(Buffer.from(req.query.state, 'base64').toString()) : {};
+      const targetOrigin = (state.origin && state.origin !== 'undefined') ? state.origin : (process.env.FRONTEND_URL.split(',')[0]);
+
+      const cleanOrigin = targetOrigin.replace(/\/$/, '');
+
+      const token = generateToken(req.user);
+      res.redirect(`${cleanOrigin}/auth/callback?token=${token}`);
+    } catch (err) {
+      console.error('OAuth Callback Error:', err);
+      res.redirect(`${process.env.FRONTEND_URL.split(',')[0]}/login`);
+    }
   }
 );
 

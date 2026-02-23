@@ -22,7 +22,8 @@ const Login = ({ onSwitch }) => {
 
   const handleOAuth = (provider) => {
     const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-    window.location.href = `${apiUrl}/auth/${provider}`;
+    const currentOrigin = window.location.origin;
+    window.location.href = `${apiUrl}/auth/${provider}?origin=${currentOrigin}`;
   };
 
   return (
@@ -76,7 +77,7 @@ const Login = ({ onSwitch }) => {
       </div>
 
       {/* Social */}
-      <button 
+      <button
         onClick={() => handleOAuth('google')}
         className="w-full mb-2 flex items-center justify-center gap-3 py-3 border border-gray-700 rounded hover:bg-gray-900 transition"
       >
@@ -84,7 +85,7 @@ const Login = ({ onSwitch }) => {
         Continue with Google
       </button>
 
-      <button 
+      <button
         onClick={() => handleOAuth('github')}
         className="w-full flex items-center justify-center gap-3 py-3 border border-gray-700 rounded hover:bg-gray-900 transition"
       >
