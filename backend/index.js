@@ -94,10 +94,11 @@ io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
 
   // Identity event to track user data on socket
-  socket.on('identify', ({ userId, rating }) => {
+  socket.on('identify', ({ userId, rating, username }) => {
     socket.data.userId = userId;
     socket.data.rating = rating;
-    console.log(`User identified: ${userId} (${socket.id}) with rating ${rating}`);
+    socket.data.username = username;
+    console.log(`User identified: ${userId} (${socket.id}) with rating ${rating} as ${username}`);
   });
 
   socket.on('joinMatchRoom', async ({ matchId }) => {
@@ -120,6 +121,33 @@ io.on('connection', (socket) => {
       }
     } catch (err) {
       console.error('joinMatchRoom error:', err);
+    }
+  });
+
+  socket.on('sendFriendChallenge', async ({ challengerId, friendId }) => {
+    try {
+      const challenger = await User.findById(challengerId);
+      if (!challenger) return;
+
+      const friend = await User.findById(friendId);
+      if (!friend) return;
+
+      console.log(`User ${challenger.username} challenged friend ${friend.username}`);
+
+      // Find friend's socket
+      const sockets = await io.fetchSockets();
+      const friendSocket = sockets.find(s => s.data.userId?.toString() === friendId.toString());
+
+      if (friendSocket) {
+        friendSocket.emit('incomingFriendChallenge', {
+          challengerId: challenger._id,
+          username: challenger.username,
+          rating: challenger.rating,
+          avatar: challenger.avatar
+        });
+      }
+    } catch (err) {
+      console.error('Friend challenge error:', err);
     }
   });
 
@@ -274,7 +302,22 @@ io.on('connection', (socket) => {
 
   socket.on('acceptChallenge', async ({ challengerId, acceptorId }) => {
     try {
-      const challenger = waitingQueue.find(p => p.userId.toString() === challengerId.toString());
+      let challenger = waitingQueue.find(p => p.userId.toString() === challengerId.toString());
+
+      if (!challenger) {
+        // Check if user is online (for direct friend challenges)
+        const sockets = await io.fetchSockets();
+        const challengerSocket = sockets.find(s => s.data.userId?.toString() === challengerId.toString());
+        if (challengerSocket) {
+          challenger = {
+            userId: challengerId,
+            socketId: challengerSocket.id,
+            rating: challengerSocket.data.rating || 600,
+            username: challengerSocket.data.username || 'Challenger'
+          };
+        }
+      }
+
       if (!challenger) {
         socket.emit('error', { message: 'Challenge no longer available' });
         return;

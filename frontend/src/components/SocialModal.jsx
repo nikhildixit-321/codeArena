@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, Search, UserPlus, Check, UserMinus, Loader2, Users, Send } from 'lucide-react';
+import { X, Search, UserPlus, Check, UserMinus, Loader2, Users, Send, Swords } from 'lucide-react';
+import socket from '../api/socket';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 
@@ -72,6 +73,17 @@ const SocialModal = ({ isOpen, onClose, initialTab = 'friends' }) => {
             setRequests(prev => prev.filter(r => r._id !== userId));
         } catch (err) { console.error(err); }
         finally { setActionLoading(null); }
+    };
+
+    const handleChallengeFriend = (friendId) => {
+        if (!socket.connected) {
+            socket.connect();
+        }
+        socket.emit('sendFriendChallenge', {
+            challengerId: user._id,
+            friendId: friendId
+        });
+        alert('Challenge sent!');
     };
 
     if (!isOpen) return null;
@@ -253,6 +265,14 @@ const SocialModal = ({ isOpen, onClose, initialTab = 'friends' }) => {
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-2">
+                                                <button
+                                                    onClick={() => handleChallengeFriend(f._id)}
+                                                    className="p-2 bg-sky-500/10 hover:bg-sky-500 text-sky-400 hover:text-black rounded-lg transition-all flex items-center gap-2 group/btn"
+                                                    title="Challenge to Battle"
+                                                >
+                                                    <Swords size={16} />
+                                                    <span className="text-[10px] font-black uppercase hidden group-hover/btn:block">Battle</span>
+                                                </button>
                                                 <button className="p-2 bg-white/5 hover:bg-sky-500/20 text-sky-400 rounded-lg transition-all" title="Profile">
                                                     <Users size={16} />
                                                 </button>
