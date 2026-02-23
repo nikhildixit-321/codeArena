@@ -1,22 +1,25 @@
 import React, { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 
 const AuthCallback = () => {
   const navigate = useNavigate();
+  const { checkUser } = useAuth();
   const [searchParams] = useSearchParams();
 
   useEffect(() => {
-    const token = searchParams.get('token');
-    if (token) {
-      localStorage.setItem('token', token);
-      // Small delay to ensure token is saved before navigation
-      setTimeout(() => {
+    const handleAuth = async () => {
+      const token = searchParams.get('token');
+      if (token) {
+        localStorage.setItem('token', token);
+        await checkUser();
         navigate('/dashboard');
-      }, 100);
-    } else {
-      navigate('/login');
-    }
-  }, [searchParams, navigate]);
+      } else {
+        navigate('/');
+      }
+    };
+    handleAuth();
+  }, [searchParams, navigate, checkUser]);
 
   return (
     <div className="min-h-screen bg-black flex items-center justify-center text-white">
