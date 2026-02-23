@@ -80,7 +80,7 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// Login
+// Login with google 
 router.post('/login', (req, res, next) => {
   passport.authenticate('local', { session: false }, (err, user, info) => {
     if (err) return next(err);

@@ -26,7 +26,8 @@ const ChallengeNotification = () => {
                 console.log('Identifying with rating:', user.rating || 600);
                 socket.emit('identify', {
                     userId: user._id,
-                    rating: user.rating !== undefined ? user.rating : 600
+                    rating: user.rating !== undefined ? user.rating : 600,
+                    username: user.username
                 });
             }
         };
@@ -77,11 +78,25 @@ const ChallengeNotification = () => {
 
         socket.on('newChallenger', handleNewChallenger);
 
+        const handleFriendChallenge = (data) => {
+            console.log('Incoming Friend Challenge:', data);
+            setChallenger({ ...data, isFriend: true });
+
+            const timer = setTimeout(() => {
+                setChallenger(null);
+            }, 30000); // 30 seconds for friends
+
+            return () => clearTimeout(timer);
+        };
+
+        socket.on('incomingFriendChallenge', handleFriendChallenge);
+
         return () => {
             socket.off('connect', onConnect);
             socket.off('connect_error', onConnectError);
             socket.off('disconnect', onDisconnect);
             socket.off('newChallenger', handleNewChallenger);
+            socket.off('incomingFriendChallenge', handleFriendChallenge);
         };
     }, [user]);
 
@@ -135,7 +150,7 @@ const ChallengeNotification = () => {
                     <div className="flex items-start justify-between mb-3">
                         <div className="flex items-center gap-2 text-sky-400 font-bold uppercase text-xs tracking-wider">
                             <Swords size={14} className="animate-pulse" />
-                            <span>Challenger Approaching!</span>
+                            <span>{challenger.isFriend ? 'Friend Challenge!' : 'Challenger Approaching!'}</span>
                         </div>
                         <button
                             onClick={handleDecline}

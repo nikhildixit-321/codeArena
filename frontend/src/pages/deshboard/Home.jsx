@@ -194,11 +194,11 @@ const DashboardContent = ({ isSocialOpen, setIsSocialOpen, onOpenSocial }) => {
                   onClick={() => navigate('/practice')}
                 />
                 <ActionCard
-                  title="Private Room"
-                  desc="Challenge a friend to a custom duel."
+                  title="Play with Friend"
+                  desc="Invite a friend to a coding battle."
                   icon={Users}
                   color="bg-purple-500"
-                  onClick={() => { }}
+                  onClick={() => onOpenSocial('friends')}
                 />
               </div>
 
