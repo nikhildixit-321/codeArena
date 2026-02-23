@@ -64,7 +64,7 @@ const Settings = () => {
 
         try {
             await api.delete('/auth/account');
-            window.location.href = '/login';
+            window.location.href = '/';
         } catch (err) {
             setMessage({ type: 'error', text: 'Failed to delete account' });
         }

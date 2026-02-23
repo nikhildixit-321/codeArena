@@ -94,7 +94,7 @@ export function AppSidebar() {
 
     const handleLogout = () => {
         logout();
-        navigate('/login');
+        window.location.href = '/';
     }
 
     return (

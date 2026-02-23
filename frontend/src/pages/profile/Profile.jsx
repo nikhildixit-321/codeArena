@@ -207,7 +207,7 @@ const Profile = () => {
                 Edit Profile
               </button>
               <button
-                onClick={() => { logout(); navigate('/login'); }}
+                onClick={() => { logout(); window.location.href = '/'; }}
                 className="flex items-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-lg transition-colors font-medium text-sm border border-red-500/20"
               >
                 <LogOut size={16} />
