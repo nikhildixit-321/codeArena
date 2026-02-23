@@ -126,6 +126,7 @@ const DashboardContent = ({ isSocialOpen, setIsSocialOpen, onOpenSocial }) => {
               color="text-amber-400"
               bg="bg-amber-400/10"
               trend="Global Rank"
+              onClick={() => navigate('/leaderboard')}
             />
             <StatsCard
               label="Matches Won"
@@ -134,6 +135,7 @@ const DashboardContent = ({ isSocialOpen, setIsSocialOpen, onOpenSocial }) => {
               color="text-sky-400"
               bg="bg-sky-400/10"
               trend="Total Wins"
+              onClick={() => navigate('/profile')}
             />
             <StatsCard
               label="Battle Points"
@@ -142,6 +144,7 @@ const DashboardContent = ({ isSocialOpen, setIsSocialOpen, onOpenSocial }) => {
               color="text-yellow-400"
               bg="bg-yellow-400/10"
               trend="Experience"
+              onClick={() => navigate('/leaderboard')}
             />
             <StatsCard
               label="Daily Streak"
@@ -150,6 +153,7 @@ const DashboardContent = ({ isSocialOpen, setIsSocialOpen, onOpenSocial }) => {
               color="text-rose-500"
               bg="bg-rose-500/10"
               trend="Current Streak"
+              onClick={() => navigate('/profile')}
             />
           </div>
 
@@ -177,7 +181,10 @@ const DashboardContent = ({ isSocialOpen, setIsSocialOpen, onOpenSocial }) => {
                 >
                   <Swords size={20} strokeWidth={3} /> FIND MATCH
                 </button>
-                <button className="px-8 py-4 bg-white/5 text-white font-bold text-lg rounded-xl border border-white/10 hover:bg-white/10 transition-colors">
+                <button
+                  onClick={() => navigate('/leaderboard')}
+                  className="px-8 py-4 bg-white/5 text-white font-bold text-lg rounded-xl border border-white/10 hover:bg-white/10 transition-colors"
+                >
                   LEADERBOARD
                 </button>
               </div>
@@ -197,7 +204,7 @@ const DashboardContent = ({ isSocialOpen, setIsSocialOpen, onOpenSocial }) => {
                   desc="Sharpen your skills with 500+ problems."
                   icon={Target}
                   color="bg-emerald-500"
-                  onClick={() => navigate('/practice')}
+                  onClick={() => navigate('/practice/leetcode')}
                 />
                 <ActionCard
                   title="Play with Friend"
@@ -223,7 +230,11 @@ const DashboardContent = ({ isSocialOpen, setIsSocialOpen, onOpenSocial }) => {
                     <div className="p-8 text-center text-gray-500 text-sm">No active battles right now. Be the first!</div>
                   ) : (
                     liveMatches.map((match, i) => (
-                      <div key={match._id || i} className="p-4 border-b border-white/5 last:border-0 hover:bg-white/2 flex items-center justify-between group transition-colors">
+                      <div
+                        key={match._id || i}
+                        onClick={() => navigate('/matchmaking')}
+                        className="p-4 border-b border-white/5 last:border-0 hover:bg-white/2 cursor-pointer flex items-center justify-between group transition-colors"
+                      >
                         <div className="flex items-center gap-4">
                           <div className="flex -space-x-2">
                             {match.players?.slice(0, 2).map((p, idx) => (
@@ -275,7 +286,7 @@ const DashboardContent = ({ isSocialOpen, setIsSocialOpen, onOpenSocial }) => {
                     </div>
                     <p className="text-sm text-gray-400 mb-6 relative z-10">Solve today's problem to increase streak.</p>
                     <button
-                      onClick={() => navigate('/practice')} // Or specific daily route
+                      onClick={() => navigate('/practice/leetcode')} // Or specific daily route
                       className="w-full py-3 bg-white text-black font-bold text-sm rounded-xl hover:bg-gray-200 transition-colors relative z-10"
                     >
                       Start Challenge
@@ -325,8 +336,11 @@ const DashboardContent = ({ isSocialOpen, setIsSocialOpen, onOpenSocial }) => {
 };
 
 // Components
-const StatsCard = ({ label, value, icon: Icon, color, bg, trend }) => (
-  <div className="bg-[#0e0e12] border border-white/5 p-5 rounded-2xl flex items-center justify-between hover:border-white/10 transition-colors group">
+const StatsCard = ({ label, value, icon: Icon, color, bg, trend, onClick }) => (
+  <div
+    onClick={onClick}
+    className={`bg-[#0e0e12] border border-white/5 p-5 rounded-2xl flex items-center justify-between hover:border-white/10 transition-colors group ${onClick ? 'cursor-pointer active:scale-95' : ''}`}
+  >
     <div>
       <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">{label}</p>
       <p className="text-2xl font-black text-white group-hover:scale-105 transition-transform origin-left">{value}</p>
