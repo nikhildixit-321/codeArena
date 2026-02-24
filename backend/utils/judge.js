@@ -32,8 +32,7 @@ const wrapCode = (code, language, input = null, functionName = 'solution') => {
   } else if (language === 'cpp') {
     if (!code.includes('main(') && !code.includes('main (')) {
       const isClass = code.includes('class Solution');
-      const functionMatch = code.match(/(?:vector<[^>]+>|int|long|string|void|double|float|bool|auto|char)\s+([a-zA-Z0-9_]+)\s*\(/);
-      const functionName = functionMatch ? functionMatch[1] : 'solution';
+      const targetFunction = functionName || 'solution';
 
       sourceCode = `#include <iostream>
 #include <vector>
@@ -67,7 +66,7 @@ int main() {
     ${isClass ? 'Solution sol;' : ''}
     try {
         ${input !== null ? `
-        auto result = ${isClass ? 'sol.' : ''}${functionName}(${input.replace(/\[/g, '{').replace(/\]/g, '}')});
+        auto result = ${isClass ? 'sol.' : ''}${targetFunction}(${input.replace(/\[/g, '{').replace(/\]/g, '}')});
         printRes(result);` : '// No input provided for wrapper'}
     } catch (...) {
         return 1;
@@ -86,8 +85,9 @@ public class Main {
     
     public static void main(String[] args) {
         Solution sol = new Solution();
-        // Dynamic call would need reflection for Java, but let's assume 'solution' for now or standard method
-        // For Java we usually expect Solution class with a method.
+        // For simplicity in Java, we expect a standard method call pattern
+        // This is a basic wrapper, ideally it should match the question signature
+        System.out.println(sol.${functionName || 'solution'}(/* inputs here */));
     }
 }
 `;

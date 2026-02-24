@@ -39,29 +39,10 @@ const MatchArena = () => {
   ];
 
   const STARTER_CODE = {
-    javascript: `// Write your solution here
-function solution(nums, target) {
-  
-}`,
-    python: `# Write your solution here
-def solution(nums, target):
-    pass`,
-    cpp: `// Write your solution here
-#include <vector>
-using namespace std;
-
-class Solution {
-public:
-    vector<int> twoSum(vector<int>& nums, int target) {
-        
-    }
-};`,
-    java: `// Write your solution here
-class Solution {
-    public int[] twoSum(int[] nums, int target) {
-        
-    }
-}`
+    javascript: `// Write your solution here\nfunction solution() {\n  \n}`,
+    python: `# Write your solution here\ndef solution():\n    pass`,
+    cpp: `// Write your solution here\n#include <vector>\nusing namespace std;\n\nclass Solution {\npublic:\n    void solution() {\n        \n    }\n};`,
+    java: `// Write your solution here\nclass Solution {\n    public void solution() {\n        \n    }\n}`
   };
 
   const [language, setLanguage] = useState('javascript');
