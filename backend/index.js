@@ -19,7 +19,9 @@ const executeRoutes = require('./routes/execute');
 const app = express();
 app.use(compression());
 const server = http.createServer(app);
-const allowedOrigins = process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',') : ['http://localhost:5173'];
+const allowedOrigins = process.env.FRONTEND_URL
+  ? process.env.FRONTEND_URL.split(',').map(o => o.trim())
+  : ['http://localhost:5173'];
 
 const io = new Server(server, {
   cors: {
@@ -440,6 +442,21 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('runCode', async ({ matchId, userId, code, language }) => {
+    try {
+      const match = await Match.findById(matchId).populate('question');
+      if (!match) return;
+
+      // Only run on non-hidden test cases for "Run"
+      const sampleTestCases = match.question.testCases.filter(tc => !tc.isHidden);
+      const judgment = await executeCode(code, sampleTestCases, language || 'javascript', match.question.functionName);
+
+      socket.emit('runResult', { judgment });
+    } catch (err) {
+      console.error('Run code error:', err);
+    }
+  });
+
   socket.on('submitCode', async ({ matchId, userId, code, language }) => {
     try {
       const match = await Match.findById(matchId).populate('question');
@@ -449,7 +466,7 @@ io.on('connection', (socket) => {
       if (playerIndex === -1) return;
 
       // Judge the code
-      const judgment = await executeCode(code, match.question.testCases, language || 'javascript');
+      const judgment = await executeCode(code, match.question.testCases, language || 'javascript', match.question.functionName);
 
       // Always update the code and execution time for the player
       match.players[playerIndex].code = code;

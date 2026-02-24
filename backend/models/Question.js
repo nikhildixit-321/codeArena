@@ -36,6 +36,16 @@ const QuestionSchema = new mongoose.Schema({
     isHidden: { type: Boolean, default: false }
   }],
   hints: [String],
+  functionName: {
+    type: String,
+    default: 'solution'
+  },
+  starterCode: {
+    javascript: String,
+    python: String,
+    cpp: String,
+    java: String
+  },
   timeLimit: {
     type: Number, // in seconds
     default: 900 // 15 minutes default

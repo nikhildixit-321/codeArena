@@ -10,16 +10,24 @@ const LANGUAGE_IDS = {
   java: 62
 };
 
-const wrapCode = (code, language, input = null) => {
+const wrapCode = (code, language, input = null, functionName = 'solution') => {
   let sourceCode = code;
 
   if (language === 'javascript') {
     if (input !== null) {
-      sourceCode += `\nconsole.log(JSON.stringify(solution(${input})));`;
+      if (code.includes('class Solution')) {
+        sourceCode += `\nconst sol = new Solution();\nconsole.log(JSON.stringify(sol.${functionName}(${input})));`;
+      } else {
+        sourceCode += `\nconsole.log(JSON.stringify(${functionName}(${input})));`;
+      }
     }
   } else if (language === 'python') {
     if (input !== null) {
-      sourceCode += `\nimport json\nprint(solution(${input}))`;
+      if (code.includes('class Solution')) {
+        sourceCode += `\nimport json\nsol = Solution()\nprint(sol.${functionName}(${input}))`;
+      } else {
+        sourceCode += `\nimport json\nprint(${functionName}(${input}))`;
+      }
     }
   } else if (language === 'cpp') {
     if (!code.includes('main(') && !code.includes('main (')) {
@@ -78,6 +86,8 @@ public class Main {
     
     public static void main(String[] args) {
         Solution sol = new Solution();
+        // Dynamic call would need reflection for Java, but let's assume 'solution' for now or standard method
+        // For Java we usually expect Solution class with a method.
     }
 }
 `;
@@ -86,12 +96,12 @@ public class Main {
   return sourceCode;
 };
 
-const executeCode = async (code, testCases, language) => {
+const executeCode = async (code, testCases, language, functionName = 'solution') => {
   const languageId = LANGUAGE_IDS[language] || 63;
   const results = [];
 
   for (const tc of testCases) {
-    const sourceCode = wrapCode(code, language, tc.input);
+    const sourceCode = wrapCode(code, language, tc.input, functionName);
     const encodedCode = Buffer.from(sourceCode, 'utf8').toString('base64');
 
     try {
@@ -113,6 +123,7 @@ const executeCode = async (code, testCases, language) => {
 
       results.push({
         passed,
+        input: tc.input,
         actual: stdout || stderr || compile_output,
         expected: tc.output,
         executionTime: parseFloat(result.time || 0) * 1000

@@ -82,6 +82,7 @@ class Solution {
   const [runResult, setRunResult] = useState(null);
   const [isRunning, setIsRunning] = useState(false);
   const [isWaitingForInput, setIsWaitingForInput] = useState(false);
+  const [selectedCase, setSelectedCase] = useState(0);
   const inputRef = useRef(null);
 
   useEffect(() => {
@@ -91,8 +92,21 @@ class Solution {
   }, []);
 
   useEffect(() => {
-    setCode(STARTER_CODE[language] || '// Write code here');
-  }, [language]);
+    if (matchData.question?.starterCode?.[language]) {
+      setCode(matchData.question.starterCode[language]);
+    } else if (matchData.question?.functionName) {
+      const name = matchData.question.functionName;
+      if (language === 'javascript') {
+        setCode(`function ${name}() {\n  \n}`);
+      } else if (language === 'python') {
+        setCode(`def ${name}():\n    pass`);
+      } else {
+        setCode(STARTER_CODE[language] || '// Write code here');
+      }
+    } else {
+      setCode(STARTER_CODE[language] || '// Write code here');
+    }
+  }, [language, matchData.question]);
 
   useEffect(() => {
     // 1. Fetch match details if incomplete or mock
@@ -160,12 +174,22 @@ class Solution {
       setResult(data.judgment);
       setIsTerminalOpen(true);
       setConsoleTab('results');
+      setSelectedCase(0);
       setSubmissions(prev => [data.judgment, ...prev]); // Add to history
       setActiveTab('submissions'); // Switch to tab as requested
     });
 
+    socket.on('runResult', (data) => {
+      setResult(data.judgment);
+      setIsTerminalOpen(true);
+      setConsoleTab('results');
+      setSelectedCase(0);
+      setIsRunning(false);
+    });
+
     socket.on('matchEnded', (data) => {
       setMatchEnded(data);
+      if (data.judgment) setResult(data.judgment);
       if (checkUser) checkUser();
     });
 
@@ -195,7 +219,15 @@ class Solution {
     navigate('/dashboard');
   };
 
-  const handleRun = () => {
+  const handleSampleRun = () => {
+    if (!code.trim() || isRunning) return;
+    setIsRunning(true);
+    setConsoleTab('results');
+    setIsTerminalOpen(true);
+    socket.emit('runCode', { matchId, userId: user._id, code, language });
+  };
+
+  const handleCustomRun = () => {
     if (!code.trim()) return;
     setIsTerminalOpen(true);
     setConsoleTab('output');
@@ -652,14 +684,24 @@ class Solution {
               }}
             />
 
-            {/* Quick Run FAB */}
+            {/* Run Button */}
             <button
-              onClick={handleRun}
+              onClick={handleSampleRun}
               disabled={isRunning}
-              className="absolute bottom-6 right-8 w-14 h-14 bg-rose-500 hover:bg-rose-400 rounded-full shadow-[0_0_30px_rgba(244,63,94,0.4)] flex items-center justify-center transition-all hover:scale-110 z-10 group disabled:opacity-50"
-              title="Run Code (Custom Input)"
+              className="absolute bottom-6 right-24 w-14 h-14 bg-white/5 hover:bg-white/10 text-white rounded-full border border-white/10 shadow-xl flex items-center justify-center transition-all hover:scale-110 z-10 group disabled:opacity-50"
+              title="Run Code (Sample Cases)"
             >
-              {isRunning ? <Loader2 size={24} className="animate-spin text-black" /> : <Play size={24} fill="black" className="ml-1 text-black" />}
+              {isRunning ? <Loader2 size={24} className="animate-spin text-sky-400" /> : <Play size={24} className="ml-1 text-white" />}
+            </button>
+
+            {/* Quick Submit FAB */}
+            <button
+              onClick={handleSubmit}
+              disabled={isRunning}
+              className="absolute bottom-6 right-8 w-14 h-14 bg-sky-500 hover:bg-sky-400 rounded-full shadow-[0_0_30px_rgba(14,165,233,0.4)] flex items-center justify-center transition-all hover:scale-110 z-10 group disabled:opacity-50"
+              title="Submit Solution"
+            >
+              <Send size={24} fill="black" className="ml-0.5 text-black" />
             </button>
           </div>
 
@@ -714,21 +756,53 @@ class Solution {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
                         {result.results.map((r, i) => (
-                          <div key={i} className="bg-[#121218] border border-white/5 p-3 rounded-lg flex items-center justify-between group hover:border-white/10 transition-colors">
-                            <div className="flex items-center gap-3">
-                              <div className={`w-2 h-2 rounded-full ${r.passed ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                              <span className="text-xs font-mono text-gray-400">Test Case #{i + 1}</span>
-                            </div>
-                            <div className="flex items-center gap-4">
-                              <span className="text-xs font-mono text-gray-500">{r.executionTime}ms</span>
-                              <span className={`text-xs font-bold ${r.passed ? 'text-green-500' : 'text-red-500'}`}>
-                                {r.passed ? 'PASS' : 'FAIL'}
-                              </span>
+                          <button
+                            key={i}
+                            onClick={() => setSelectedCase(i)}
+                            className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap border ${selectedCase === i
+                              ? (r.passed ? 'bg-green-500/10 border-green-500/40 text-green-400' : 'bg-red-500/10 border-red-500/40 text-red-400')
+                              : 'bg-white/5 border-white/5 text-gray-500 hover:text-gray-300'
+                              }`}
+                          >
+                            Case {i + 1}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Case Details */}
+                      <div className="bg-[#121218] border border-white/5 rounded-2xl p-5 space-y-4 animate-in fade-in duration-300">
+                        <div className="grid grid-cols-1 gap-4">
+                          <div>
+                            <p className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2">Input</p>
+                            <div className="bg-black/40 rounded-xl p-3 font-mono text-xs text-blue-300 border border-white/5">
+                              {result.results[selectedCase]?.input || 'N/A'}
                             </div>
                           </div>
-                        ))}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <p className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2">Expected</p>
+                              <div className="bg-black/40 rounded-xl p-3 font-mono text-xs text-green-400 border border-white/5">
+                                {result.results[selectedCase]?.expected}
+                              </div>
+                            </div>
+                            <div>
+                              <p className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2">Outcome</p>
+                              <div className={`bg-black/40 rounded-xl p-3 font-mono text-xs border border-white/5 ${result.results[selectedCase]?.passed ? 'text-green-400' : 'text-red-400'}`}>
+                                {result.results[selectedCase]?.actual || 'No output'}
+                              </div>
+                            </div>
+                          </div>
+                          {result.results[selectedCase]?.executionTime !== undefined && (
+                            <div className="flex items-center gap-2">
+                              <Timer size={12} className="text-gray-600" />
+                              <span className="text-[10px] font-bold text-gray-600 font-mono">
+                                Execution Time: {result.results[selectedCase].executionTime}ms
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ) : (
