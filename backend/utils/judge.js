@@ -34,6 +34,41 @@ const wrapCode = (code, language, input = null, functionName = 'solution') => {
       const isClass = code.includes('class Solution');
       const targetFunction = functionName || 'solution';
 
+      // Robust argument splitting for C++ (handling nested brackets)
+      let argDecls = '';
+      let callArgs = '';
+      if (input !== null) {
+        const args = [];
+        let current = '';
+        let depth = 0;
+        for (let i = 0; i < input.length; i++) {
+          const char = input[i];
+          if (char === '[' || char === '{') depth++;
+          if (char === ']' || char === '}') depth--;
+          if (char === ',' && depth === 0) {
+            args.push(current.trim());
+            current = '';
+          } else {
+            current += char;
+          }
+        }
+        args.push(current.trim());
+
+        const transformedArgs = args.map((arg, i) => {
+          const val = arg.replace(/\[/g, '{').replace(/\]/g, '}');
+          const varName = `__arg${i}`;
+          if (val.startsWith('{')) {
+            argDecls += `    vector ${varName} = ${val};\n`;
+          } else if (val.startsWith('"') || val.startsWith("'")) {
+            argDecls += `    string ${varName} = ${val};\n`;
+          } else {
+            argDecls += `    auto ${varName} = ${val};\n`;
+          }
+          return varName;
+        });
+        callArgs = transformedArgs.join(', ');
+      }
+
       sourceCode = `#include <iostream>
 #include <vector>
 #include <string>
@@ -65,9 +100,9 @@ void printRes(const vector<T>& v) {
 int main() {
     ${isClass ? 'Solution sol;' : ''}
     try {
-        ${input !== null ? `
-        auto result = ${isClass ? 'sol.' : ''}${targetFunction}(${input.replace(/\[/g, '{').replace(/\]/g, '}')});
-        printRes(result);` : '// No input provided for wrapper'}
+${argDecls}
+        auto result = ${isClass ? 'sol.' : ''}${targetFunction}(${callArgs});
+        printRes(result);
     } catch (...) {
         return 1;
     }

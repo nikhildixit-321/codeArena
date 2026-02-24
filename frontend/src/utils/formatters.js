@@ -2,13 +2,20 @@ import { BASE_URL } from '../api/axios';
 
 export const formatAvatarUrl = (avatar) => {
     if (!avatar) return null;
+
+    // Handle full URLs
     if (avatar.startsWith('http')) {
-        if (avatar.includes('localhost:5000')) {
-            return avatar.replace('http://localhost:5000', BASE_URL);
+        // If we are on production but the URL is localhost, try fixing it
+        if (!window.location.hostname.includes('localhost') && avatar.includes('localhost')) {
+            return avatar.replace(/^http:\/\/localhost:\d+/, BASE_URL.replace(/\/$/, ''));
         }
         return avatar;
     }
-    return `${BASE_URL}${avatar.startsWith('/') ? '' : '/'}${avatar}`;
+
+    // Handle relative paths
+    const cleanBase = BASE_URL.replace(/\/$/, '');
+    const cleanAvatar = avatar.startsWith('/') ? avatar : `/${avatar}`;
+    return `${cleanBase}${cleanAvatar}`;
 };
 
 export const getRank = (rating) => {
