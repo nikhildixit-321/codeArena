@@ -58,7 +58,12 @@ const wrapCode = (code, language, input = null, functionName = 'solution') => {
           const val = arg.replace(/\[/g, '{').replace(/\]/g, '}');
           const varName = `__arg${i}`;
           if (val.startsWith('{')) {
-            argDecls += `    vector ${varName} = ${val};\n`;
+            // Manual type detection for containers since CTAD might not be supported
+            if (val.includes('{{') || val.match(/\{\s*\{/)) {
+              argDecls += `    vector<vector<int>> ${varName} = ${val};\n`;
+            } else {
+              argDecls += `    vector<int> ${varName} = ${val};\n`;
+            }
           } else if (val.startsWith('"') || val.startsWith("'")) {
             argDecls += `    string ${varName} = ${val};\n`;
           } else {
