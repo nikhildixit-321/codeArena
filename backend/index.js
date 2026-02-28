@@ -697,89 +697,50 @@ io.on('connection', (socket) => {
     console.log('User disconnected:', socket.id);
     waitingQueue = waitingQueue.filter(p => p.socketId !== socket.id);
 
-    // Check if player was in an active match
     try {
       const activeMatch = await Match.findOne({
         status: 'active',
-        'players.socketId': socket.id  // Only matches players whose CURRENT socketId is this
+        'players.socketId': socket.id
       });
 
       if (activeMatch) {
-        const disconnectedSocketId = socket.id; // Capture in closure
         const userId = socket.data.userId;
-        console.log(`User ${userId} disconnected during match ${activeMatch._id}. Starting 60s grace period...`);
+        const player = activeMatch.players.find(p => p.user.toString() === userId?.toString());
+        const opponentPlayer = activeMatch.players.find(p => p.user.toString() !== userId?.toString());
 
-        // ── 60-second grace period ──────────────────────────────────────────
-        // During this time, user can reconnect and emit joinMatchRoom
-        // jonMatchRoom updates their socketId in DB → condition below becomes FALSE → match lives
-        setTimeout(async () => {
-          const currentMatch = await Match.findById(activeMatch._id);
-          if (!currentMatch || currentMatch.status !== 'active') return; // Already ended
+        // End match immediately — no grace period
+        const disconnectedUser = await User.findById(player?.user);
+        if (disconnectedUser) {
+          disconnectedUser.rating = Math.max(0, disconnectedUser.rating - 15);
+          disconnectedUser.matchesPlayed += 1;
+          await disconnectedUser.save();
+        }
 
-          // Re-fetch fresh from DB (not closure) — joinMatchRoom updates this
-          const player = currentMatch.players.find(p => p.user.toString() === userId?.toString());
-
-          // KEY FIX: Check DB-stored socketId vs the OLD disconnected socket
-          // If player reconnected → joinMatchRoom updated DB socketId → this check is FALSE → continue
-          // If player never reconnected → old socketId still in DB → this check is TRUE → end match
-          if (!player || player.socketId !== disconnectedSocketId) {
-            console.log(`User ${userId} reconnected within grace period. Match continues.`);
-            return;
+        if (opponentPlayer) {
+          const winnerUser = await User.findById(opponentPlayer.user);
+          if (winnerUser) {
+            winnerUser.rating += 20;
+            winnerUser.matchesPlayed += 1;
+            winnerUser.matchesWon += 1;
+            await winnerUser.save();
           }
+        }
 
-          console.log(`Grace period expired for user ${userId}. Ending match.`);
-          const opponentPlayer = currentMatch.players.find(p => p.user.toString() !== userId?.toString());
-          const matchAge = (new Date() - currentMatch.startTime) / 1000; // seconds since match started
-          const totalSubmissions = currentMatch.players.reduce((acc, p) => acc + (p.score > 0 ? 1 : 0), 0);
+        activeMatch.status = 'completed';
+        activeMatch.winner = opponentPlayer?.user || null;
+        activeMatch.endTime = new Date();
+        await activeMatch.save();
 
-          // If match just started (< 30s) and no submissions — ABORT, no rating penalty
-          if (matchAge < 30 && totalSubmissions === 0) {
-            currentMatch.status = 'completed';
-            currentMatch.winner = null;
-            currentMatch.endTime = new Date();
-            await currentMatch.save();
-            io.to(`match_${currentMatch._id}`).emit('matchEnded', {
-              winner: null,
-              reason: 'ABORT',
-              abortedBy: userId,
-              ratingChanges: []
-            });
-            return;
-          }
+        io.to(`match_${activeMatch._id}`).emit('matchEnded', {
+          winner: opponentPlayer?.user,
+          reason: 'DISCONNECT',
+          ratingChanges: [
+            { userId: player?.user?.toString(), change: -15 },
+            { userId: opponentPlayer?.user?.toString(), change: 20 }
+          ]
+        });
 
-          // Match was in progress — DISCONNECT loss
-          const disconnectedUser = await User.findById(player.user);
-          if (disconnectedUser) {
-            disconnectedUser.rating = Math.max(0, disconnectedUser.rating - 15);
-            disconnectedUser.matchesPlayed += 1;
-            await disconnectedUser.save();
-          }
-
-          if (opponentPlayer) {
-            const winnerUser = await User.findById(opponentPlayer.user);
-            if (winnerUser) {
-              winnerUser.rating += 20;
-              winnerUser.matchesPlayed += 1;
-              winnerUser.matchesWon += 1;
-              await winnerUser.save();
-            }
-          }
-
-          currentMatch.status = 'completed';
-          currentMatch.winner = opponentPlayer?.user;
-          currentMatch.endTime = new Date();
-          await currentMatch.save();
-
-          io.to(`match_${currentMatch._id}`).emit('matchEnded', {
-            winner: opponentPlayer?.user,
-            reason: 'DISCONNECT',
-            ratingChanges: [
-              { userId: player.user.toString(), change: -15 },
-              { userId: opponentPlayer?.user?.toString(), change: 20 }
-            ]
-          });
-
-        }, 60000); // 60 seconds grace — enough for Render cold-start reconnects
+        console.log(`Match ${activeMatch._id} ended — disconnect by ${userId}`);
       }
     } catch (err) {
       console.error('Disconnect match cleanup error:', err);
@@ -791,3 +752,5 @@ const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+
+
