@@ -179,19 +179,30 @@ io.on('connection', (socket) => {
         // Remove opponent from queue
         waitingQueue = waitingQueue.filter(p => p.userId.toString() !== opponent.userId.toString());
 
-        // Targeted Question: Find a question close to the average rating of both players
+        // Targeted Question: Find a random question close to the average rating of both players
         const avgRating = (user.rating + (opponent.rating || 600)) / 2;
-        const potentialQuestions = await Question.find({
-          rating: { $gte: avgRating - 300, $lte: avgRating + 300 }
-        });
+        const ratingMin = Math.max(0, avgRating - 300);
+        const ratingMax = avgRating + 300;
 
-        const question = potentialQuestions.length > 0
-          ? potentialQuestions[Math.floor(Math.random() * potentialQuestions.length)]
-          : await Question.findOne().skip(Math.floor(Math.random() * await Question.countDocuments()));
+        // Random pick from the full 3000 question pool using MongoDB random skip
+        const filter = {
+          rating: { $gte: ratingMin, $lte: ratingMax },
+          'testCases.0': { $exists: true }
+        };
+        const count = await Question.countDocuments(filter);
+        let question;
+        if (count > 0) {
+          const randomSkip = Math.floor(Math.random() * count);
+          question = await Question.findOne(filter).skip(randomSkip);
+        } else {
+          // Fallback: any question from DB
+          const totalCount = await Question.countDocuments({ 'testCases.0': { $exists: true } });
+          question = await Question.findOne({ 'testCases.0': { $exists: true } }).skip(Math.floor(Math.random() * Math.max(1, totalCount)));
+        }
 
-        const duration = (question.timeLimit && question.timeLimit >= 60)
-          ? question.timeLimit
-          : (question.difficulty === 'Hard' ? 45 * 60 : question.difficulty === 'Medium' ? 25 * 60 : 15 * 60);
+        // Duration strictly based on difficulty — same as frontend
+        const DURATION_MAP = { Easy: 15 * 60, Medium: 25 * 60, Hard: 45 * 60 };
+        const duration = DURATION_MAP[question.difficulty] || 15 * 60;
 
         // Create match
         const newMatch = await Match.create({
@@ -264,7 +275,7 @@ io.on('connection', (socket) => {
 
             await m.save();
             io.to(`match_${newMatch._id}`).emit('matchEnded', {
-              reason: 'Time expired',
+              reason: 'TIMEOUT',
               winner: winnerId,
               ratingChanges
             });
@@ -331,25 +342,23 @@ io.on('connection', (socket) => {
       // Remove challenger from queue
       waitingQueue = waitingQueue.filter(p => p.userId.toString() !== challengerId.toString());
 
-      // Targeted Question: Find a question close to the average rating of both players
+      // Random pick from full pool — same as matchmaking queue
       const avgRating = (acceptorUser.rating + (challenger.rating || 600)) / 2;
-      const potentialQuestions = await Question.find({
-        rating: { $gte: avgRating - 300, $lte: avgRating + 300 }
-      });
-
-      const question = potentialQuestions.length > 0
-        ? potentialQuestions[Math.floor(Math.random() * potentialQuestions.length)]
-        : await Question.findOne().skip(Math.floor(Math.random() * await Question.countDocuments()));
-
-      if (!question) {
-        socket.emit('error', { message: 'Failed to retrieve question.' });
-        return;
+      const ratingMin = Math.max(0, avgRating - 300);
+      const ratingMax = avgRating + 300;
+      const qFilter = { rating: { $gte: ratingMin, $lte: ratingMax }, 'testCases.0': { $exists: true } };
+      const qCount = await Question.countDocuments(qFilter);
+      let question;
+      if (qCount > 0) {
+        question = await Question.findOne(qFilter).skip(Math.floor(Math.random() * qCount));
+      } else {
+        const total = await Question.countDocuments({ 'testCases.0': { $exists: true } });
+        question = await Question.findOne({ 'testCases.0': { $exists: true } }).skip(Math.floor(Math.random() * Math.max(1, total)));
       }
 
-      // Calculate duration - Use difficulty fallback if timeLimit is missing or too low (< 1 min)
-      const duration = (question.timeLimit && question.timeLimit >= 60)
-        ? question.timeLimit
-        : (question.difficulty === 'Hard' ? 45 * 60 : question.difficulty === 'Medium' ? 25 * 60 : 15 * 60);
+      // Duration based on difficulty — same map as frontend & joinQueue
+      const DURATION_MAP = { Easy: 15 * 60, Medium: 25 * 60, Hard: 45 * 60 };
+      const duration = DURATION_MAP[question?.difficulty] || 15 * 60;
 
       // Create match
       const newMatch = await Match.create({
@@ -430,7 +439,7 @@ io.on('connection', (socket) => {
 
           await m.save();
           io.to(matchRoom).emit('matchEnded', {
-            reason: 'Time expired',
+            reason: 'TIMEOUT',
             winner: winnerId,
             ratingChanges
           });
@@ -550,26 +559,30 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('abortMatch', async ({ matchId, userId }) => {
+  // ─────────────────────────────────────────
+  // RESIGN — Player voluntarily surrenders
+  // Like chess resign: instant loss, full rating penalty
+  // ─────────────────────────────────────────
+  socket.on('resignMatch', async ({ matchId, userId }) => {
     try {
       const match = await Match.findById(matchId);
       if (!match || match.status !== 'active') return;
 
-      const player = match.players.find(p => p.user.toString() === userId.toString());
-      if (!player) return;
+      const resigningPlayer = match.players.find(p => p.user.toString() === userId.toString());
+      if (!resigningPlayer) return;
 
-      // Aborting user loses 20 points
-      const user = await User.findById(userId);
-      if (user) {
-        user.rating = Math.max(0, user.rating - 20);
-        user.matchesPlayed += 1;
-        await user.save();
+      const opponentPlayer = match.players.find(p => p.user.toString() !== userId.toString());
+
+      // Rating changes
+      const resignUser = await User.findById(userId);
+      if (resignUser) {
+        resignUser.rating = Math.max(0, resignUser.rating - 15);
+        resignUser.matchesPlayed += 1;
+        await resignUser.save();
       }
 
-      // Opponent wins and gets 20 points
-      const winnerPlayer = match.players.find(p => p.user.toString() !== userId.toString());
-      if (winnerPlayer) {
-        const winnerUser = await User.findById(winnerPlayer.user);
+      if (opponentPlayer) {
+        const winnerUser = await User.findById(opponentPlayer.user);
         if (winnerUser) {
           winnerUser.rating += 20;
           winnerUser.matchesPlayed += 1;
@@ -579,18 +592,90 @@ io.on('connection', (socket) => {
       }
 
       match.status = 'completed';
-      match.winner = winnerPlayer?.user; // Opponent wins
+      match.winner = opponentPlayer?.user;
       match.endTime = new Date();
       await match.save();
 
-      io.to(`match_${matchId}`).emit('matchAborted', {
-        abortedBy: userId,
-        message: 'Opponent aborted.',
+      io.to(`match_${matchId}`).emit('matchEnded', {
+        winner: opponentPlayer?.user,
+        reason: 'RESIGN',
+        resignedBy: userId,
         ratingChanges: [
-          { userId, change: -20 },
-          { userId: winnerPlayer?.user, change: 20 }
+          { userId: userId.toString(), change: -15 },
+          { userId: opponentPlayer?.user?.toString(), change: 20 }
         ]
       });
+
+    } catch (err) {
+      console.error('Resign Error:', err);
+    }
+  });
+
+  // ─────────────────────────────────────────
+  // ABORT — Exit before match properly started
+  // Chess rule: if < 1 submission made = ABORT (no rating change)
+  //             if ≥ 1 submission made = treated as RESIGN (rating penalty)
+  // ─────────────────────────────────────────
+  socket.on('abortMatch', async ({ matchId, userId }) => {
+    try {
+      const match = await Match.findById(matchId);
+      if (!match || match.status !== 'active') return;
+
+      const player = match.players.find(p => p.user.toString() === userId.toString());
+      if (!player) return;
+
+      // Count total submissions across both players
+      const totalSubmissions = match.players.reduce((acc, p) => acc + (p.score > 0 ? 1 : 0), 0);
+      const isEarlyAbort = totalSubmissions === 0; // No one has submitted yet
+
+      match.status = 'completed';
+      match.endTime = new Date();
+
+      if (isEarlyAbort) {
+        // TRUE ABORT: Game hadn't really started — no rating change, no winner
+        match.winner = null;
+        await match.save();
+
+        io.to(`match_${matchId}`).emit('matchEnded', {
+          winner: null,
+          reason: 'ABORT',
+          abortedBy: userId,
+          ratingChanges: []
+        });
+      } else {
+        // Game was in progress — treat as resign
+        const opponentPlayer = match.players.find(p => p.user.toString() !== userId.toString());
+
+        const abortUser = await User.findById(userId);
+        if (abortUser) {
+          abortUser.rating = Math.max(0, abortUser.rating - 15);
+          abortUser.matchesPlayed += 1;
+          await abortUser.save();
+        }
+
+        if (opponentPlayer) {
+          const winnerUser = await User.findById(opponentPlayer.user);
+          if (winnerUser) {
+            winnerUser.rating += 20;
+            winnerUser.matchesPlayed += 1;
+            winnerUser.matchesWon += 1;
+            await winnerUser.save();
+          }
+        }
+
+        match.winner = opponentPlayer?.user;
+        await match.save();
+
+        io.to(`match_${matchId}`).emit('matchEnded', {
+          winner: opponentPlayer?.user,
+          reason: 'RESIGN',
+          resignedBy: userId,
+          ratingChanges: [
+            { userId: userId.toString(), change: -15 },
+            { userId: opponentPlayer?.user?.toString(), change: 20 }
+          ]
+        });
+      }
 
     } catch (err) {
       console.error('Abort Error:', err);

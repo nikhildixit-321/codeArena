@@ -52,7 +52,15 @@ const MatchArena = () => {
   const [result, setResult] = useState(null);
   const [opponentSubmitted, setOpponentSubmitted] = useState(false);
   const [matchEnded, setMatchEnded] = useState(null);
-  const [timeLeft, setTimeLeft] = useState(matchData.duration || 600); // Default to match duration or 10 min
+  // Timer: use duration from backend (difficulty-based) or fallback by difficulty
+  const getInitialTime = () => {
+    if (matchData.duration && matchData.duration >= 60) return matchData.duration;
+    const diff = matchData.question?.difficulty;
+    if (diff === 'Hard') return 45 * 60;
+    if (diff === 'Medium') return 25 * 60;
+    return 15 * 60; // Easy default
+  };
+  const [timeLeft, setTimeLeft] = useState(getInitialTime);
   const [isTerminalOpen, setIsTerminalOpen] = useState(true);
   const [activeTab, setActiveTab] = useState('description');
   const [submissions, setSubmissions] = useState([]);
@@ -191,13 +199,19 @@ const MatchArena = () => {
     };
   }, [matchId, user]); // Added deps
 
-  const handleAbort = async () => {
-    if (!matchEnded) {
-      const confirm = window.confirm("Are you sure you want to exit? This will count as a DEFEAT and you will lose rating points.");
-      if (!confirm) return;
-      socket.emit('abortMatch', { matchId, userId: user._id });
-    }
+  const handleAbort = () => {
+    if (matchEnded) { navigate('/dashboard'); return; }
+    const confirm = window.confirm("Are you sure you want to EXIT?\n\n• If NO code was submitted: Match ABORTS (no rating change)\n• If code was submitted: Counts as RESIGN (-15 rating)");
+    if (!confirm) return;
+    socket.emit('abortMatch', { matchId, userId: user._id });
     navigate('/dashboard');
+  };
+
+  const handleResign = () => {
+    if (matchEnded) return;
+    const confirm = window.confirm("Are you sure you want to RESIGN?\n\nThis counts as a loss and you will lose 15 rating points.");
+    if (!confirm) return;
+    socket.emit('resignMatch', { matchId, userId: user._id });
   };
 
   const handleSampleRun = () => {
@@ -285,75 +299,116 @@ const MatchArena = () => {
   };
 
   // --- MATCH ENDED SCREEN ---
+  // ─── MATCH ENDED SCREEN ────────────────────────────────────────────────
   if (matchEnded) {
-    const isWinner = matchEnded.winner === (user?._id || 'me');
-    const isDraw = !matchEnded.winner;
-    const isAborted = matchEnded.aborted;
+    const myId = user?._id?.toString();
+    const winnerId = matchEnded.winner?.toString();
+    const reason = matchEnded.reason || 'UNKNOWN';
+    const isAbort = reason === 'ABORT';
+    const isWinner = !isAbort && winnerId && winnerId === myId;
+    const isDraw = !isAbort && !winnerId;
+
+    const reasonConfig = {
+      SOLVED: { label: 'Checkmate', sub: 'All test cases passed', color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+      TIMEOUT: { label: 'Timeout', sub: 'Time ran out', color: 'text-orange-400', bg: 'bg-orange-500/10' },
+      RESIGN: { label: 'Resignation', sub: isWinner ? 'Opponent resigned' : 'You resigned', color: isWinner ? 'text-emerald-400' : 'text-red-400', bg: isWinner ? 'bg-emerald-500/10' : 'bg-red-500/10' },
+      DISCONNECT: { label: 'Disconnect', sub: isWinner ? 'Opponent disconnected' : 'You disconnected', color: isWinner ? 'text-sky-400' : 'text-red-400', bg: isWinner ? 'bg-sky-500/10' : 'bg-red-500/10' },
+      ABORT: { label: 'Aborted', sub: 'Match ended before it started', color: 'text-yellow-400', bg: 'bg-yellow-500/10' },
+      UNKNOWN: { label: 'Match Over', sub: '', color: 'text-gray-400', bg: 'bg-white/5' },
+    };
+
+    const cfg = reasonConfig[reason] || reasonConfig.UNKNOWN;
+    const ratingChange = matchEnded.ratingChanges?.find(r => r.userId?.toString() === myId)?.change;
 
     return (
       <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center p-4 overflow-hidden relative">
-        {/* Victory/Defeat Backgrounds */}
-        <div className={`absolute inset-0 bg-[radial-gradient(ellipse_at_center,var(--tw-gradient-stops))] ${isWinner ? 'from-green-900/40 via-[#050505] to-[#050505]' : (isDraw ? 'from-blue-900/40 via-[#050505] to-[#050505]' : 'from-red-900/40 via-[#050505] to-[#050505]')}`}></div>
-        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
+        {/* Background glow */}
+        <div className={`absolute inset-0 bg-[radial-gradient(ellipse_at_center,var(--tw-gradient-stops))] ${isAbort ? 'from-yellow-900/30 via-[#050505] to-[#050505]' :
+          isWinner ? 'from-emerald-900/40 via-[#050505] to-[#050505]' :
+            isDraw ? 'from-blue-900/30 via-[#050505] to-[#050505]' :
+              'from-red-900/40 via-[#050505] to-[#050505]'
+          }`} />
 
-        <div className="relative z-10 bg-[#0a0a0f] border border-white/10 p-12 rounded-3xl flex flex-col items-center max-w-lg w-full text-center shadow-2xl animate-in zoom-in-95 duration-500">
-          <div className={`mb-8 p-8 rounded-full ${isWinner ? 'bg-green-500/10 text-green-500 shadow-[0_0_50px_rgba(34,197,94,0.3)]' : (isDraw ? 'bg-blue-500/10 text-blue-500 shadow-[0_0_50px_rgba(59,130,246,0.3)]' : 'bg-red-500/10 text-red-500 shadow-[0_0_50px_rgba(239,68,68,0.3)]')} ring-1 ring-white/10`}>
-            {isWinner ? <Trophy size={80} className="animate-bounce" /> : (isDraw ? <Minus size={80} /> : <AlertCircle size={80} className="opacity-70" />)}
-          </div>
+        <div className="relative z-10 max-w-md w-full">
+          {/* Main card */}
+          <div className="bg-[#0a0a0f] border border-white/10 rounded-3xl overflow-hidden shadow-2xl">
 
-          <h2 className={`text-4xl md:text-6xl font-black mb-2 bg-clip-text text-transparent ${isWinner ? 'bg-linear-to-b from-white to-green-400' : (isDraw ? 'bg-linear-to-b from-white to-blue-400' : 'bg-linear-to-b from-white to-red-400')} uppercase tracking-tighter`}>
-            {isWinner ? 'Victory' : (isDraw ? 'Draw' : 'Defeat')}
-          </h2>
+            {/* Top color bar */}
+            <div className={`h-1.5 w-full ${isAbort ? 'bg-yellow-500' : isWinner ? 'bg-emerald-500' : isDraw ? 'bg-blue-500' : 'bg-red-500'
+              }`} />
 
-          {/* Winner Name Display */}
-          {!isWinner && !isDraw && !isAborted && (
-            <p className="text-gray-400 text-sm font-bold mt-2 uppercase tracking-widest">
-              Winner: <span className="text-red-400">{matchData.opponent?.username || 'Rival'}</span>
-            </p>
-          )}
+            <div className="p-8 flex flex-col items-center text-center">
+              {/* Trophy / Icon */}
+              <div className={`mb-6 w-24 h-24 rounded-full flex items-center justify-center ${isAbort ? 'bg-yellow-500/10' : isWinner ? 'bg-emerald-500/10' : isDraw ? 'bg-blue-500/10' : 'bg-red-500/10'
+                } ring-1 ring-white/10`}>
+                {isAbort ? <AlertCircle size={50} className="text-yellow-400" /> :
+                  isWinner ? <Trophy size={50} className="text-emerald-400 animate-bounce" /> :
+                    isDraw ? <Minus size={50} className="text-blue-400" /> :
+                      <XCircle size={50} className="text-red-400" />}
+              </div>
 
-          {isAborted && (
-            <p className="text-orange-500 text-xs font-black uppercase tracking-widest mb-4 mt-2">
-              {matchEnded.abortedBy === user._id ? 'You abandoned the battle' : 'Opponent fled the arena'}
-            </p>
-          )}
+              {/* Result text */}
+              <h2 className={`text-5xl font-black uppercase tracking-tighter mb-1 ${isAbort ? 'text-yellow-400' : isWinner ? 'text-emerald-400' : isDraw ? 'text-blue-400' : 'text-red-400'
+                }`}>
+                {isAbort ? 'Aborted' : isWinner ? 'Victory!' : isDraw ? 'Draw' : 'Defeat'}
+              </h2>
+              <p className="text-gray-500 text-sm mb-6">vs {matchData.opponent?.username || 'Opponent'}</p>
 
-          <div className="flex items-center gap-8 my-8 w-full justify-center bg-white/5 p-6 rounded-2xl border border-white/5">
-            <div className="text-center">
-              <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1 font-bold">Status</p>
-              <p className={`font-black text-2xl ${isWinner ? 'text-green-400' : (isDraw ? 'text-blue-400' : 'text-red-400')}`}>
-                {isWinner ? 'Winner' : (isDraw ? 'Stalemate' : 'Eliminated')}
-              </p>
+              {/* Reason badge */}
+              <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 ${cfg.bg} mb-6`}>
+                <span className={`text-xs font-black uppercase tracking-widest ${cfg.color}`}>{cfg.label}</span>
+                <span className="text-gray-600">·</span>
+                <span className="text-xs text-gray-500">{cfg.sub}</span>
+              </div>
+
+              {/* Stats row */}
+              <div className="flex items-stretch gap-px w-full bg-white/5 rounded-2xl overflow-hidden border border-white/5 mb-8">
+                <div className="flex-1 flex flex-col items-center p-4">
+                  <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1 font-bold">Result</p>
+                  <p className={`font-black text-xl ${isAbort ? 'text-yellow-400' : isWinner ? 'text-emerald-400' : isDraw ? 'text-blue-400' : 'text-red-400'
+                    }`}>
+                    {isAbort ? 'Abort' : isWinner ? 'Win' : isDraw ? 'Draw' : 'Loss'}
+                  </p>
+                </div>
+                <div className="w-px bg-white/5" />
+                <div className="flex-1 flex flex-col items-center p-4">
+                  <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1 font-bold">Rating</p>
+                  <p className={`font-black text-xl flex items-center gap-1 ${ratingChange > 0 ? 'text-emerald-400' : ratingChange < 0 ? 'text-red-400' : 'text-gray-400'
+                    }`}>
+                    {ratingChange !== undefined
+                      ? (ratingChange > 0 ? '+' : '') + ratingChange
+                      : isAbort ? '±0' : isWinner ? '+20' : isDraw ? '±0' : '-15'}
+                    <Zap size={14} className={ratingChange > 0 ? 'text-yellow-400 fill-yellow-400' : 'opacity-30'} />
+                  </p>
+                </div>
+                <div className="w-px bg-white/5" />
+                <div className="flex-1 flex flex-col items-center p-4">
+                  <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1 font-bold">Question</p>
+                  <p className="font-bold text-xs text-gray-300 text-center leading-tight truncate max-w-full px-1">
+                    {matchData.question?.difficulty || 'Easy'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Buttons */}
+              <div className="flex gap-3 w-full">
+                <button
+                  onClick={() => navigate('/dashboard')}
+                  className="flex-1 bg-white/5 hover:bg-white/10 text-gray-300 py-3.5 rounded-xl font-bold transition-all border border-white/5 hover:border-white/20 text-sm"
+                >
+                  Home
+                </button>
+                <button
+                  onClick={() => navigate('/matchmaking')}
+                  className={`flex-1 py-3.5 rounded-xl font-bold transition-all shadow-lg flex items-center justify-center gap-2 text-sm ${isWinner
+                    ? 'bg-emerald-600 hover:bg-emerald-500 text-black shadow-emerald-500/20'
+                    : 'bg-white/10 hover:bg-white/20 text-white border border-white/10'
+                    }`}
+                >
+                  Play Again <ArrowRight size={16} />
+                </button>
+              </div>
             </div>
-            <div className="h-10 w-px bg-white/10"></div>
-            <div className="text-center">
-              <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1 font-bold">Rating</p>
-              <p className="font-black text-2xl text-white flex items-center gap-1">
-                {(() => {
-                  const myChange = matchEnded.ratingChanges?.find(r => r.userId === user?._id)?.change;
-                  if (myChange !== undefined) {
-                    return (myChange > 0 ? '+' : '') + myChange;
-                  }
-                  return isWinner ? '+20' : (isDraw ? '0' : '-12');
-                })()}
-                <Zap size={16} className={isWinner ? 'text-yellow-400 fill-yellow-400' : 'text-gray-600'} />
-              </p>
-            </div>
-          </div>
-
-          <div className="flex gap-4 w-full">
-            <button
-              onClick={() => navigate('/dashboard')}
-              className="flex-1 bg-white/5 hover:bg-white/10 text-gray-300 py-4 rounded-xl font-bold transition-all border border-white/5 hover:border-white/20"
-            >
-              Back Home
-            </button>
-            <button
-              onClick={() => navigate('/matchmaking')}
-              className={`flex-1 py-4 rounded-xl font-bold transition-all shadow-lg flex items-center justify-center gap-2 ${isWinner ? 'bg-green-600 hover:bg-green-500 text-black shadow-green-500/20' : 'bg-red-600 hover:bg-red-500 text-white shadow-red-500/20'}`}
-            >
-              Play Again <ArrowRight size={18} />
-            </button>
           </div>
         </div>
       </div>
@@ -404,13 +459,28 @@ const MatchArena = () => {
           </div>
 
           {/* Timer */}
-          <div className={`
-            px-3 py-1 md:px-4 md:py-1.5 rounded-full border flex items-center gap-2 font-mono font-bold text-sm md:text-lg shadow-lg
-            ${timeLeft < 60 ? 'bg-red-500/10 border-red-500/50 text-red-500 animate-pulse' : 'bg-[#121218] border-white/10 text-gray-200'}
-          `}>
-            <Timer size={isMobile ? 14 : 16} />
-            {formatTime(timeLeft)}
-          </div>
+          {(() => {
+            const totalTime = matchData.duration || getInitialTime();
+            const pctLeft = timeLeft / totalTime;
+            const urgency = timeLeft < 60 ? 'red' : pctLeft < 0.25 ? 'orange' : 'normal';
+            return (
+              <div className="flex flex-col items-center gap-0.5">
+                <div className={`
+                  px-3 py-1 md:px-4 md:py-1.5 rounded-full border flex items-center gap-2 font-mono font-bold text-sm md:text-lg shadow-lg transition-all
+                  ${urgency === 'red' ? 'bg-red-500/10 border-red-500/60 text-red-400 animate-pulse' :
+                    urgency === 'orange' ? 'bg-orange-500/10 border-orange-500/50 text-orange-400' :
+                      'bg-[#121218] border-white/10 text-gray-200'
+                  }
+                `}>
+                  <Timer size={isMobile ? 14 : 16} />
+                  {formatTime(timeLeft)}
+                </div>
+                <span className="text-[9px] font-bold uppercase tracking-widest text-gray-500">
+                  {matchData.question?.difficulty === 'Hard' ? '45 MIN' : matchData.question?.difficulty === 'Medium' ? '25 MIN' : '15 MIN'}
+                </span>
+              </div>
+            );
+          })()}
 
           {/* Player 2 (Opponent) */}
           <div className="flex items-center gap-2 md:gap-4">
@@ -438,16 +508,18 @@ const MatchArena = () => {
 
         {/* Right: Actions */}
         <div className="flex items-center gap-2 md:gap-3">
-          {!isMobile && (
-            <>
-              <button className="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
-                <Settings size={20} />
-              </button>
-              <button className="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
-                <Layout size={20} />
-              </button>
-            </>
-          )}
+          {/* Resign Button — chess style */}
+          <button
+            onClick={handleResign}
+            title="Resign (lose the match)"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-red-500/30 bg-red-500/5 text-red-400 hover:bg-red-500/15 hover:border-red-500/50 transition-all text-xs font-bold uppercase tracking-widest group"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" className="group-hover:scale-110 transition-transform">
+              <path d="M4 3h16v10H4V3zm2 2v6h12V5H6zm-2 9h2v8H4v-8zm14 0h2v8h-2v-8z" />
+            </svg>
+            {!isMobile && <span>Resign</span>}
+          </button>
+
           <button
             onClick={handleSubmit}
             className="group flex items-center gap-2 bg-white text-black hover:bg-gray-200 px-4 py-2 md:px-6 md:py-2.5 rounded-xl font-bold transition-all hover:scale-105 active:scale-95 ml-1 md:ml-2 text-xs md:text-sm"
@@ -456,6 +528,7 @@ const MatchArena = () => {
             <span>SUBMIT</span>
           </button>
         </div>
+
       </header>
 
       {/* Mobile Tab Switcher */}
