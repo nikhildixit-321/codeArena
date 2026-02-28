@@ -48,12 +48,37 @@ const MatchArena = () => {
   const [language, setLanguage] = useState('javascript');
   const [code, setCode] = useState(STARTER_CODE['javascript']);
 
-  const [autoNavigate, setAutoNavigate] = useState(null); // countdown seconds
+  // ── ALL STATE FIRST (before any useEffect that references them) ─────────
+  const [result, setResult] = useState(null);
+  const [opponentSubmitted, setOpponentSubmitted] = useState(false);
+  const [matchEnded, setMatchEnded] = useState(null);
+  const [autoNavigate, setAutoNavigate] = useState(null);
 
-  // Auto-navigate to dashboard 5s after match ends
+  // Timer: duration from backend, fallback by difficulty
+  const getInitialTime = () => {
+    if (matchData.duration && matchData.duration >= 60) return matchData.duration;
+    const diff = matchData.question?.difficulty;
+    if (diff === 'Hard') return 45 * 60;
+    if (diff === 'Medium') return 25 * 60;
+    return 15 * 60;
+  };
+  const [timeLeft, setTimeLeft] = useState(getInitialTime);
+  const [isTerminalOpen, setIsTerminalOpen] = useState(true);
+  const [activeTab, setActiveTab] = useState('description');
+  const [submissions, setSubmissions] = useState([]);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+  const [customInput, setCustomInput] = useState('');
+  const [consoleTab, setConsoleTab] = useState('results');
+  const [runResult, setRunResult] = useState(null);
+  const [isRunning, setIsRunning] = useState(false);
+  const [isWaitingForInput, setIsWaitingForInput] = useState(false);
+  const [selectedCase, setSelectedCase] = useState(0);
+  const inputRef = useRef(null);
+
+  // ── Auto-navigate 5s after match ends (AFTER matchEnded is declared) ────
   useEffect(() => {
     if (!matchEnded) return;
-    if (checkUser) checkUser(); // refresh rating
+    if (checkUser) checkUser();
     let count = 5;
     setAutoNavigate(count);
     const interval = setInterval(() => {
@@ -67,31 +92,6 @@ const MatchArena = () => {
     }, 1000);
     return () => clearInterval(interval);
   }, [matchEnded]);
-
-  const [result, setResult] = useState(null);
-  const [opponentSubmitted, setOpponentSubmitted] = useState(false);
-  const [matchEnded, setMatchEnded] = useState(null);
-  // Timer: use duration from backend (difficulty-based) or fallback by difficulty
-  const getInitialTime = () => {
-    if (matchData.duration && matchData.duration >= 60) return matchData.duration;
-    const diff = matchData.question?.difficulty;
-    if (diff === 'Hard') return 45 * 60;
-    if (diff === 'Medium') return 25 * 60;
-    return 15 * 60; // Easy default
-  };
-  const [timeLeft, setTimeLeft] = useState(getInitialTime);
-  const [isTerminalOpen, setIsTerminalOpen] = useState(true);
-  const [activeTab, setActiveTab] = useState('description');
-  const [submissions, setSubmissions] = useState([]);
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
-
-  const [customInput, setCustomInput] = useState('');
-  const [consoleTab, setConsoleTab] = useState('results'); // 'results', 'testcase', or 'output'
-  const [runResult, setRunResult] = useState(null);
-  const [isRunning, setIsRunning] = useState(false);
-  const [isWaitingForInput, setIsWaitingForInput] = useState(false);
-  const [selectedCase, setSelectedCase] = useState(0);
-  const inputRef = useRef(null);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 1024);
@@ -207,12 +207,20 @@ const MatchArena = () => {
     });
 
     // Timer — counts down and fires timeoutMatch at 0
+    // Guard: only if initial time is valid (>=60s) — prevents mock data instant-timeout
+    const initialTime = getInitialTime();
+    if (initialTime < 60) {
+      console.warn('[Timer] Invalid duration, not starting timer:', initialTime);
+      return;
+    }
+
     const timer = setInterval(() => {
       setTimeLeft(t => {
         if (t <= 1) {
           clearInterval(timer);
-          // Emit timeout to server — server decides winner
-          socket.emit('timeoutMatch', { matchId, userId: user._id });
+          if (socket.connected && matchId && user?._id) {
+            socket.emit('timeoutMatch', { matchId, userId: user._id });
+          }
           return 0;
         }
         return t - 1;
