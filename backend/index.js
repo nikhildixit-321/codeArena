@@ -542,6 +542,7 @@ io.on('connection', (socket) => {
         // Notify both players that the match has ended
         io.to(`match_${matchId}`).emit('matchEnded', {
           winner: winnerId,
+          reason: 'SOLVED',
           judgment,
           ratingChanges
         });
@@ -691,6 +692,70 @@ io.on('connection', (socket) => {
   socket.on('leaveQueue', () => {
     waitingQueue = waitingQueue.filter(p => p.socketId !== socket.id);
     console.log(`User left queue: ${socket.id}`);
+  });
+
+  // ─────────────────────────────────────────
+  // TIMEOUT — Frontend timer hit 0:00
+  // Called by whichever player's timer expires first
+  // ─────────────────────────────────────────
+  socket.on('timeoutMatch', async ({ matchId, userId }) => {
+    try {
+      const match = await Match.findById(matchId);
+      if (!match || match.status !== 'active') return; // Already ended (e.g. opponent solved it)
+
+      const p1 = match.players[0];
+      const p2 = match.players[1];
+
+      // Decide winner by score, then by best execution time
+      let winnerId = null;
+      if ((p1.score || 0) > (p2.score || 0)) winnerId = p1.user;
+      else if ((p2.score || 0) > (p1.score || 0)) winnerId = p2.user;
+      else if ((p1.score || 0) === (p2.score || 0) && (p1.score || 0) > 0) {
+        winnerId = (p1.executionTime || Infinity) < (p2.executionTime || Infinity) ? p1.user : p2.user;
+      }
+      // If both 0 score → no winner (draw/timeout)
+
+      let ratingChanges = [];
+      if (winnerId) {
+        const loserId = match.players.find(p => p.user.toString() !== winnerId.toString())?.user;
+        const winner = await User.findById(winnerId);
+        const loser = loserId ? await User.findById(loserId) : null;
+
+        if (winner) {
+          winner.rating += 20;
+          winner.matchesPlayed += 1;
+          winner.matchesWon += 1;
+          await winner.save();
+          ratingChanges.push({ userId: winnerId.toString(), change: 20 });
+        }
+        if (loser) {
+          loser.rating = Math.max(0, loser.rating - 12);
+          loser.matchesPlayed += 1;
+          await loser.save();
+          ratingChanges.push({ userId: loserId.toString(), change: -12 });
+        }
+      } else {
+        // Both timed out with 0 score — update matches played only
+        for (const p of match.players) {
+          const u = await User.findById(p.user);
+          if (u) { u.matchesPlayed += 1; await u.save(); }
+        }
+      }
+
+      match.status = 'completed';
+      match.winner = winnerId;
+      match.endTime = new Date();
+      await match.save();
+
+      io.to(`match_${matchId}`).emit('matchEnded', {
+        winner: winnerId,
+        reason: 'TIMEOUT',
+        ratingChanges
+      });
+
+    } catch (err) {
+      console.error('Timeout match error:', err);
+    }
   });
 
   socket.on('disconnect', async () => {

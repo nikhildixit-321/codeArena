@@ -48,7 +48,26 @@ const MatchArena = () => {
   const [language, setLanguage] = useState('javascript');
   const [code, setCode] = useState(STARTER_CODE['javascript']);
 
-  // State
+  const [autoNavigate, setAutoNavigate] = useState(null); // countdown seconds
+
+  // Auto-navigate to dashboard 5s after match ends
+  useEffect(() => {
+    if (!matchEnded) return;
+    if (checkUser) checkUser(); // refresh rating
+    let count = 5;
+    setAutoNavigate(count);
+    const interval = setInterval(() => {
+      count -= 1;
+      if (count <= 0) {
+        clearInterval(interval);
+        navigate('/dashboard');
+      } else {
+        setAutoNavigate(count);
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [matchEnded]);
+
   const [result, setResult] = useState(null);
   const [opponentSubmitted, setOpponentSubmitted] = useState(false);
   const [matchEnded, setMatchEnded] = useState(null);
@@ -179,25 +198,35 @@ const MatchArena = () => {
     socket.on('matchEnded', (data) => {
       setMatchEnded(data);
       if (data.judgment) setResult(data.judgment);
-      if (checkUser) checkUser();
+      // checkUser & auto-navigate handled by the matchEnded useEffect above
     });
 
     socket.on('matchAborted', (data) => {
-      setMatchEnded({ ...data, aborted: true, winner: data.abortedBy === user._id ? null : user._id });
-      if (checkUser) checkUser();
+      // Unified into matchEnded now — fallback for old events
+      setMatchEnded({ ...data, reason: 'ABORT' });
     });
 
+    // Timer — counts down and fires timeoutMatch at 0
     const timer = setInterval(() => {
-      setTimeLeft(t => (t > 0 ? t - 1 : 0));
+      setTimeLeft(t => {
+        if (t <= 1) {
+          clearInterval(timer);
+          // Emit timeout to server — server decides winner
+          socket.emit('timeoutMatch', { matchId, userId: user._id });
+          return 0;
+        }
+        return t - 1;
+      });
     }, 1000);
 
     return () => {
       socket.off('opponentSubmitted');
       socket.off('submissionResult');
       socket.off('matchEnded');
+      socket.off('runResult');
       clearInterval(timer);
     };
-  }, [matchId, user]); // Added deps
+  }, [matchId, user]);
 
   const handleAbort = () => {
     if (matchEnded) { navigate('/dashboard'); return; }
@@ -390,6 +419,22 @@ const MatchArena = () => {
                 </div>
               </div>
 
+              {/* Auto-navigate countdown */}
+              {autoNavigate !== null && (
+                <div className="w-full mb-3">
+                  <div className="flex items-center justify-between text-[11px] text-gray-500 mb-1.5">
+                    <span>Redirecting to dashboard...</span>
+                    <span className="font-bold text-gray-400">{autoNavigate}s</span>
+                  </div>
+                  <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-1000 ${isWinner ? 'bg-emerald-500' : isAbort ? 'bg-yellow-500' : 'bg-red-500'}`}
+                      style={{ width: `${(autoNavigate / 5) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
               {/* Buttons */}
               <div className="flex gap-3 w-full">
                 <button
@@ -408,6 +453,7 @@ const MatchArena = () => {
                   Play Again <ArrowRight size={16} />
                 </button>
               </div>
+
             </div>
           </div>
         </div>
