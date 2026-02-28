@@ -97,6 +97,66 @@ const User = require('./models/User');
 // Matchmaking Queue
 let waitingQueue = [];
 
+// ─────────────────────────────────────────────────────────────────────────
+// SMART QUESTION PICKER
+// Priority: unplayed + rating match → unplayed any → any (last resort)
+// Uses $sample for TRUE randomness (skip() is biased on large collections)
+// ─────────────────────────────────────────────────────────────────────────
+async function pickQuestion(user1Id, user2Id, avgRating) {
+  const ratingMin = Math.max(0, avgRating - 300);
+  const ratingMax = avgRating + 300;
+
+  // Get union of both players' played question IDs
+  const [u1, u2] = await Promise.all([
+    User.findById(user1Id).select('playedQuestions'),
+    User.findById(user2Id).select('playedQuestions')
+  ]);
+  const playedIds = [
+    ...(u1?.playedQuestions || []),
+    ...(u2?.playedQuestions || [])
+  ].map(id => id.toString());
+
+  // ── Level 1: rating match + neither player has played it ──────────────
+  let pipeline = [
+    {
+      $match: {
+        rating: { $gte: ratingMin, $lte: ratingMax },
+        'testCases.0': { $exists: true },
+        ...(playedIds.length ? { _id: { $nin: playedIds } } : {})
+      }
+    },
+    { $sample: { size: 1 } }
+  ];
+  let results = await Question.aggregate(pipeline);
+  if (results.length > 0) return results[0];
+
+  // ── Level 2: any unplayed question (ignore rating) ────────────────────
+  if (playedIds.length > 0) {
+    pipeline = [
+      { $match: { 'testCases.0': { $exists: true }, _id: { $nin: playedIds } } },
+      { $sample: { size: 1 } }
+    ];
+    results = await Question.aggregate(pipeline);
+    if (results.length > 0) return results[0];
+  }
+
+  // ── Level 3: all played — reset and pick any (user has seen everything!) ──
+  pipeline = [
+    { $match: { 'testCases.0': { $exists: true } } },
+    { $sample: { size: 1 } }
+  ];
+  results = await Question.aggregate(pipeline);
+  return results[0] || null;
+}
+
+// Record played question for both players after a match starts
+async function markQuestionPlayed(user1Id, user2Id, questionId) {
+  await Promise.all([
+    User.findByIdAndUpdate(user1Id, { $addToSet: { playedQuestions: questionId } }),
+    User.findByIdAndUpdate(user2Id, { $addToSet: { playedQuestions: questionId } })
+  ]);
+}
+
 // Socket.io connection logic
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
@@ -185,28 +245,16 @@ io.on('connection', (socket) => {
         // Remove opponent from queue
         waitingQueue = waitingQueue.filter(p => p.userId.toString() !== opponent.userId.toString());
 
-        // Targeted Question: Find a random question close to the average rating of both players
+        // Smart unique question picker — never repeat for either player
         const avgRating = (user.rating + (opponent.rating || 600)) / 2;
-        const ratingMin = Math.max(0, avgRating - 300);
-        const ratingMax = avgRating + 300;
+        const question = await pickQuestion(user._id, opponent.userId, avgRating);
 
-        // Random pick from the full 3000 question pool using MongoDB random skip
-        const filter = {
-          rating: { $gte: ratingMin, $lte: ratingMax },
-          'testCases.0': { $exists: true }
-        };
-        const count = await Question.countDocuments(filter);
-        let question;
-        if (count > 0) {
-          const randomSkip = Math.floor(Math.random() * count);
-          question = await Question.findOne(filter).skip(randomSkip);
-        } else {
-          // Fallback: any question from DB
-          const totalCount = await Question.countDocuments({ 'testCases.0': { $exists: true } });
-          question = await Question.findOne({ 'testCases.0': { $exists: true } }).skip(Math.floor(Math.random() * Math.max(1, totalCount)));
+        if (!question) {
+          socket.emit('error', { message: 'No questions available. Please try again.' });
+          return;
         }
 
-        // Duration strictly based on difficulty — same as frontend
+        // Duration strictly based on difficulty
         const DURATION_MAP = { Easy: 15 * 60, Medium: 25 * 60, Hard: 45 * 60 };
         const duration = DURATION_MAP[question.difficulty] || 15 * 60;
 
@@ -220,6 +268,9 @@ io.on('connection', (socket) => {
           status: 'active',
           startTime: new Date()
         });
+
+        // Mark question as played for both players
+        await markQuestionPlayed(user._id, opponent.userId, question._id);
 
         const matchDataBase = {
           matchId: newMatch._id,
@@ -348,21 +399,16 @@ io.on('connection', (socket) => {
       // Remove challenger from queue
       waitingQueue = waitingQueue.filter(p => p.userId.toString() !== challengerId.toString());
 
-      // Random pick from full pool — same as matchmaking queue
+      // Smart unique question picker — same algorithm as main queue
       const avgRating = (acceptorUser.rating + (challenger.rating || 600)) / 2;
-      const ratingMin = Math.max(0, avgRating - 300);
-      const ratingMax = avgRating + 300;
-      const qFilter = { rating: { $gte: ratingMin, $lte: ratingMax }, 'testCases.0': { $exists: true } };
-      const qCount = await Question.countDocuments(qFilter);
-      let question;
-      if (qCount > 0) {
-        question = await Question.findOne(qFilter).skip(Math.floor(Math.random() * qCount));
-      } else {
-        const total = await Question.countDocuments({ 'testCases.0': { $exists: true } });
-        question = await Question.findOne({ 'testCases.0': { $exists: true } }).skip(Math.floor(Math.random() * Math.max(1, total)));
+      const question = await pickQuestion(acceptorUser._id, challenger.userId, avgRating);
+
+      if (!question) {
+        socket.emit('error', { message: 'No questions available. Please try again.' });
+        return;
       }
 
-      // Duration based on difficulty — same map as frontend & joinQueue
+      // Duration based on difficulty
       const DURATION_MAP = { Easy: 15 * 60, Medium: 25 * 60, Hard: 45 * 60 };
       const duration = DURATION_MAP[question?.difficulty] || 15 * 60;
 
@@ -376,6 +422,9 @@ io.on('connection', (socket) => {
         status: 'active',
         startTime: new Date()
       });
+
+      // Mark question as played for both players
+      await markQuestionPlayed(acceptorUser._id, challenger.userId, question._id);
 
       // Join both players to a private room
       const matchRoom = `match_${newMatch._id}`;

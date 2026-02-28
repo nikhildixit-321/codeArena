@@ -56,9 +56,14 @@ const UserSchema = new mongoose.Schema({
     language: { type: String, default: 'English' },
     leetcodeHandle: { type: String, default: '' },
     codeforcesHandle: { type: String, default: '' },
-    leetcodeSession: { type: String, default: '' }, // LEETCODE_SESSION cookie
+    leetcodeSession: { type: String, default: '' },
     autoSubmitEnabled: { type: Boolean, default: false }
-  }
+  },
+  // Questions this user has already played — never repeat these
+  playedQuestions: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Question'
+  }]
 });
 
 module.exports = mongoose.model('User', UserSchema);
