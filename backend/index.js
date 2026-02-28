@@ -28,7 +28,13 @@ const io = new Server(server, {
     origin: allowedOrigins,
     methods: ['GET', 'POST'],
     credentials: true
-  }
+  },
+  // Render proxy keeps connections alive up to 55s — set ping below that
+  pingTimeout: 30000,       // 30s — how long to wait for pong before closing
+  pingInterval: 10000,      // 10s — send ping every 10s to keep connection alive
+  upgradeTimeout: 10000,    // 10s for polling→websocket upgrade
+  allowEIO3: true,          // Support older socket.io clients
+  transports: ['polling', 'websocket'], // Allow both, polling first (Render-friendly)
 });
 
 // Middleware - Allow all origins temporarily for debugging

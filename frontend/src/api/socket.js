@@ -6,10 +6,15 @@ const SOCKET_URL = API_URL.replace('/api', '');
 const socket = io(SOCKET_URL, {
   withCredentials: true,
   autoConnect: false,
-  transports: ['websocket', 'polling'], // Prioritize websocket for stability in deployment
+  // Use polling first (more reliable on Render/Vercel), then upgrade to websocket
+  transports: ['polling', 'websocket'],
   reconnection: true,
-  reconnectionAttempts: 5,
-  reconnectionDelay: 1000
+  reconnectionAttempts: Infinity,  // Keep trying forever
+  reconnectionDelay: 1000,
+  reconnectionDelayMax: 5000,
+  timeout: 20000,                  // 20s connection timeout (Render can be slow to wake)
+  upgrade: true,                   // Upgrade polling → websocket after connected
+  forceNew: false,
 });
 
 export default socket;
