@@ -30,6 +30,13 @@ const MatchSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   },
+  reason: { // SOLVED, TIMEOUT, DISCONNECT, RESIGN, ABORT
+    type: String
+  },
+  ratingChanges: [{
+    userId: mongoose.Schema.Types.ObjectId,
+    change: Number
+  }],
   startTime: Date,
   endTime: Date,
   createdAt: {

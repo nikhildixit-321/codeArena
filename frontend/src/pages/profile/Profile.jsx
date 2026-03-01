@@ -135,7 +135,9 @@ const Profile = () => {
     winRate: user.matchesPlayed ? `${Math.round((user.matchesWon / user.matchesPlayed) * 100)}%` : '0%',
     currentRating: user.rating || 600,
     highestRating: user.rating || 600,
-    streak: user.streak?.current || 0
+    streak: user.stats?.currentWinStreak || 0,
+    highestStreak: user.stats?.highestWinStreak || 0,
+    fastestSolve: user.stats?.fastestSolve ? `${Math.round(user.stats.fastestSolve)}s` : 'N/A'
   };
 
   return (
@@ -262,7 +264,7 @@ const Profile = () => {
                   <StatCard icon={Trophy} label="Total Wins" value={stats.wins} color="green" />
                 </div>
                 <div className="animate-in fade-in zoom-in duration-500 delay-200 fill-mode-backwards">
-                  <StatCard icon={Target} label="Win Rate" value={stats.winRate} color="yellow" />
+                  <StatCard icon={Clock} label="Fastest Solve" value={stats.fastestSolve} color="purple" />
                 </div>
                 <div className="animate-in fade-in zoom-in duration-500 delay-300 fill-mode-backwards">
                   <StatCard icon={Flame} label="Current Streak" value={`${stats.streak} 🔥`} color="orange" />
@@ -273,21 +275,21 @@ const Profile = () => {
                     <Award className="text-purple-500" /> Recent Achievements
                   </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {[
-                      { icon: Medal, name: 'First Blood', desc: 'Win your first match', date: '2 days ago' },
-                      { icon: Trophy, name: 'Climber', desc: 'Reach 1200 rating', date: '1 week ago' },
-                      { icon: Flame, name: 'Hot Streak', desc: 'Win 3 matches in a row', date: 'Just now' },
-                      { icon: CheckCircle, name: 'Solver', desc: 'Complete 10 daily challenges', date: 'Yesterday' },
-                    ].map((ach, i) => (
-                      <div key={i} className="bg-card p-4 rounded-xl border border-border hover:border-primary/50 transition-colors group">
-                        <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center mb-3 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
-                          <ach.icon size={20} />
+                    {user.badges && user.badges.length > 0 ? (
+                      user.badges.map((badge, i) => (
+                        <div key={i} className="bg-card p-4 rounded-xl border border-primary/20 hover:border-primary/50 transition-colors group">
+                          <div className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center mb-3">
+                            {badge.id === 'speed_demon' ? <Zap size={20} /> : badge.id === 'unstoppable' ? <Flame size={20} /> : <Medal size={20} />}
+                          </div>
+                          <div className="font-bold text-sm mb-1">{badge.label}</div>
+                          <div className="text-[10px] text-muted-foreground/60 uppercase font-mono">Unlocked {new Date(badge.unlockedAt).toLocaleDateString()}</div>
                         </div>
-                        <div className="font-bold text-sm mb-1">{ach.name}</div>
-                        <div className="text-xs text-muted-foreground mb-2">{ach.desc}</div>
-                        <div className="text-[10px] text-muted-foreground/60 uppercase font-mono">{ach.date}</div>
+                      ))
+                    ) : (
+                      <div className="col-span-full py-8 text-center bg-secondary/20 rounded-xl border border-dashed border-border text-muted-foreground text-sm">
+                        No badges earned yet. Win matches to unlock them!
                       </div>
-                    ))}
+                    )}
                   </div>
                 </div>
               </div>
@@ -400,9 +402,6 @@ const Profile = () => {
                     </tbody>
                   </table>
                 </div>
-                {gameHistory.length === 0 && (
-                  <div className="p-8 text-center text-muted-foreground">No matches played yet.</div>
-                )}
               </div>
             )}
 

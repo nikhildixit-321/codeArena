@@ -21,22 +21,46 @@ exports.startLoop = async (req, res) => {
 exports.getRandomQuestion = async (req, res) => {
     try {
         const { platform, difficulty } = req.query;
+        const userId = req.user?.id;
 
-        const matchStage = { $match: {} };
+        let playedIds = [];
+        if (userId) {
+            const user = await User.findById(userId).select('playedQuestions');
+            if (user && user.playedQuestions) {
+                playedIds = user.playedQuestions;
+            }
+        }
+
+        const matchStage = { $match: { 'testCases.0': { $exists: true } } };
         if (platform) matchStage.$match.source = new RegExp(platform, 'i');
         if (difficulty) matchStage.$match.difficulty = difficulty;
+        if (playedIds.length > 0) {
+            matchStage.$match._id = { $nin: playedIds };
+        }
 
         // Sample 1 random question
-        const questions = await Question.aggregate([
+        let questions = await Question.aggregate([
             matchStage,
             { $sample: { size: 1 } }
         ]);
 
         if (questions.length === 0) {
-            // Fallback if no questions match criteria, just get any random one
-            const fallback = await Question.aggregate([{ $sample: { size: 1 } }]);
-            if (fallback.length === 0) return res.status(404).json({ error: 'No questions found' });
-            return res.json(fallback[0]);
+            // Fallback: If no unplayed questions match, pick any that matches difficulty/platform
+            const fallbackStage = { $match: { 'testCases.0': { $exists: true } } };
+            if (platform) fallbackStage.$match.source = new RegExp(platform, 'i');
+            if (difficulty) fallbackStage.$match.difficulty = difficulty;
+
+            questions = await Question.aggregate([
+                fallbackStage,
+                { $sample: { size: 1 } }
+            ]);
+
+            if (questions.length === 0) {
+                // Absolute fallback
+                questions = await Question.aggregate([{ $sample: { size: 1 } }]);
+            }
+
+            if (questions.length === 0) return res.status(404).json({ error: 'No questions found' });
         }
 
         res.json(questions[0]);

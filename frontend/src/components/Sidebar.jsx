@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Home, Code, Swords, Terminal, User, Settings, BookText, Menu, X, GraduationCap } from 'lucide-react';
+import { Home, Code, Swords, Terminal, User, Settings, BookText, Menu, X, GraduationCap, Trophy } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   Tooltip,

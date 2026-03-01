@@ -63,7 +63,18 @@ const UserSchema = new mongoose.Schema({
   playedQuestions: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Question'
-  }]
+  }],
+  badges: [{
+    id: String,
+    unlockedAt: { type: Date, default: Date.now },
+    label: String
+  }],
+  stats: {
+    fastestSolve: Number, // in seconds
+    highestWinStreak: { type: Number, default: 0 },
+    currentWinStreak: { type: Number, default: 0 },
+    totalSubmissions: { type: Number, default: 0 }
+  }
 });
 
 module.exports = mongoose.model('User', UserSchema);

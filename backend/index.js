@@ -102,26 +102,33 @@ let waitingQueue = [];
 // Priority: unplayed + rating match → unplayed any → any (last resort)
 // Uses $sample for TRUE randomness (skip() is biased on large collections)
 // ─────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────
+// SMART QUESTION PICKER
+// Priority: unplayed + rating match → unplayed any → any (last resort)
+// Uses $sample for TRUE randomness (skip() is biased on large collections)
+// ─────────────────────────────────────────────────────────────────────────
 async function pickQuestion(user1Id, user2Id, avgRating) {
-  const ratingMin = Math.max(0, avgRating - 300);
-  const ratingMax = avgRating + 300;
+  const ratingMin = Math.max(0, avgRating - 350); // Wider range for more variety
+  const ratingMax = avgRating + 350;
 
   // Get union of both players' played question IDs
   const [u1, u2] = await Promise.all([
     User.findById(user1Id).select('playedQuestions'),
     User.findById(user2Id).select('playedQuestions')
   ]);
+
+  // Ensure we use mongoose ObjectIds for $nin to work correctly
   const playedIds = [
     ...(u1?.playedQuestions || []),
     ...(u2?.playedQuestions || [])
-  ].map(id => id.toString());
+  ].map(id => new mongoose.Types.ObjectId(id));
 
   // ── Level 1: rating match + neither player has played it ──────────────
   let pipeline = [
     {
       $match: {
         rating: { $gte: ratingMin, $lte: ratingMax },
-        'testCases.0': { $exists: true },
+        'testCases.0': { $exists: true }, // Ensure valid test cases
         ...(playedIds.length ? { _id: { $nin: playedIds } } : {})
       }
     },
@@ -133,7 +140,12 @@ async function pickQuestion(user1Id, user2Id, avgRating) {
   // ── Level 2: any unplayed question (ignore rating) ────────────────────
   if (playedIds.length > 0) {
     pipeline = [
-      { $match: { 'testCases.0': { $exists: true }, _id: { $nin: playedIds } } },
+      {
+        $match: {
+          'testCases.0': { $exists: true },
+          _id: { $nin: playedIds }
+        }
+      },
       { $sample: { size: 1 } }
     ];
     results = await Question.aggregate(pipeline);
@@ -586,6 +598,36 @@ io.on('connection', (socket) => {
           }
         }
 
+        // Save metadata to match
+        match.reason = 'SOLVED';
+        match.ratingChanges = ratingChanges;
+
+        // Update Winner Stats & Badges
+        if (winnerUser) {
+          if (!winnerUser.stats) winnerUser.stats = {};
+          winnerUser.stats.currentWinStreak = (winnerUser.stats.currentWinStreak || 0) + 1;
+          if (winnerUser.stats.currentWinStreak > (winnerUser.stats.highestWinStreak || 0)) {
+            winnerUser.stats.highestWinStreak = winnerUser.stats.currentWinStreak;
+          }
+          if (!winnerUser.stats.fastestSolve || (judgment.avgTime && judgment.avgTime < winnerUser.stats.fastestSolve)) {
+            winnerUser.stats.fastestSolve = judgment.avgTime;
+          }
+          if (judgment.avgTime < 60 && !winnerUser.badges.some(b => b.id === 'speed_demon')) {
+            winnerUser.badges.push({ id: 'speed_demon', label: 'Speed Demon' });
+          }
+          if (winnerUser.stats.currentWinStreak >= 3 && !winnerUser.badges.some(b => b.id === 'unstoppable')) {
+            winnerUser.badges.push({ id: 'unstoppable', label: 'Unstoppable' });
+          }
+          await winnerUser.save();
+        }
+
+        // Reset Loser Streak
+        if (loserUser) {
+          if (!loserUser.stats) loserUser.stats = {};
+          loserUser.stats.currentWinStreak = 0;
+          await loserUser.save();
+        }
+
         await match.save();
 
         // Notify both players that the match has ended
@@ -792,7 +834,9 @@ io.on('connection', (socket) => {
       }
 
       match.status = 'completed';
-      match.winner = winnerId;
+      match.winner = winnerId || null;
+      match.reason = 'TIMEOUT';
+      match.ratingChanges = ratingChanges;
       match.endTime = new Date();
       await match.save();
 
@@ -859,6 +903,18 @@ io.on('connection', (socket) => {
     } catch (err) {
       console.error('Disconnect match cleanup error:', err);
     }
+  });
+
+  // 📝 IN-MATCH CHAT & EMOTES
+  socket.on('matchChat', ({ matchId, userId, username, message, type = 'text' }) => {
+    // type can be 'text' or 'emote'
+    io.to(`match_${matchId}`).emit('matchMessage', {
+      userId,
+      username,
+      message,
+      type,
+      timestamp: new Date()
+    });
   });
 });
 

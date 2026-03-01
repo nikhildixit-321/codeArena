@@ -8,7 +8,8 @@ import {
   Play, Send, Trophy, Timer, Zap, Shield, Swords,
   CheckCircle, XCircle, Terminal, Cpu, Code2,
   Minimize2, Maximize2, AlertCircle, ChevronLeft,
-  Layout, Settings, ArrowRight, Minus, Lightbulb, Loader2
+  Layout, Settings, ArrowRight, Minus, Lightbulb, Loader2,
+  MessageSquare, Smile
 } from 'lucide-react';
 
 const MatchArena = () => {
@@ -74,6 +75,12 @@ const MatchArena = () => {
   const [isWaitingForInput, setIsWaitingForInput] = useState(false);
   const [selectedCase, setSelectedCase] = useState(0);
   const inputRef = useRef(null);
+
+  // 💬 CHAT STATE
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInput, setChatInput] = useState('');
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const chatEndRef = useRef(null);
 
   // ── Auto-navigate 5s after match ends (AFTER matchEnded is declared) ────
   useEffect(() => {
@@ -201,6 +208,13 @@ const MatchArena = () => {
       // checkUser & auto-navigate handled by the matchEnded useEffect above
     });
 
+    socket.on('matchMessage', (data) => {
+      setChatMessages(prev => [...prev, data]);
+      if (!isChatOpen) {
+        // Optional: show a notification dot or toast
+      }
+    });
+
     socket.on('matchAborted', (data) => {
       // Unified into matchEnded now — fallback for old events
       setMatchEnded({ ...data, reason: 'ABORT' });
@@ -232,9 +246,29 @@ const MatchArena = () => {
       socket.off('submissionResult');
       socket.off('matchEnded');
       socket.off('runResult');
+      socket.off('matchMessage');
       clearInterval(timer);
     };
   }, [matchId, user]);
+
+  const handleSendMessage = (e, type = 'text', msg = null) => {
+    if (e) e.preventDefault();
+    const finalMsg = msg || chatInput;
+    if (!finalMsg.trim()) return;
+
+    socket.emit('matchChat', {
+      matchId,
+      userId: user._id,
+      username: user.username,
+      message: finalMsg,
+      type
+    });
+    if (type === 'text') setChatInput('');
+  };
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages]);
 
   const handleAbort = () => {
     if (matchEnded) { navigate('/dashboard'); return; }
@@ -562,6 +596,17 @@ const MatchArena = () => {
 
         {/* Right: Actions */}
         <div className="flex items-center gap-2 md:gap-3">
+          {/* Chat Toggle */}
+          <button
+            onClick={() => setIsChatOpen(!isChatOpen)}
+            className={`p-2 rounded-xl border transition-all relative ${isChatOpen ? 'bg-blue-600 border-blue-500 text-white' : 'bg-white/5 border-white/10 text-gray-400 hover:text-white hover:bg-white/10'}`}
+          >
+            <MessageSquare size={isMobile ? 18 : 20} />
+            {chatMessages.length > 0 && !isChatOpen && (
+              <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-[#0a0a0f]" />
+            )}
+          </button>
+
           {/* Resign Button — chess style */}
           <button
             onClick={handleResign}
@@ -961,6 +1006,79 @@ const MatchArena = () => {
         </div>
 
       </div>
+
+      {/* 4. CHAT SIDEBAR / DRAWER */}
+      {isChatOpen && (
+        <div className={`fixed inset-y-0 right-0 w-80 bg-[#0a0a0f] border-l border-white/10 z-100 flex flex-col shadow-2xl transition-transform duration-300 transform translate-x-0`}>
+          <div className="p-4 border-b border-white/5 flex items-center justify-between">
+            <h3 className="font-bold flex items-center gap-2">
+              <MessageSquare size={16} className="text-blue-500" />
+              Match Chat
+            </h3>
+            <button onClick={() => setIsChatOpen(false)} className="text-gray-500 hover:text-white p-1">
+              <ChevronLeft size={20} className="rotate-180" />
+            </button>
+          </div>
+
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
+            {chatMessages.length === 0 && (
+              <div className="h-full flex flex-col items-center justify-center text-gray-600 italic text-sm">
+                <Smile size={32} className="mb-2 opacity-20" />
+                No messages yet. Say hi!
+              </div>
+            )}
+            {chatMessages.map((msg, i) => (
+              <div key={i} className={`flex flex-col ${msg.userId === user._id ? 'items-end' : 'items-start'}`}>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className={`text-[10px] font-bold uppercase tracking-wider ${msg.userId === user._id ? 'text-blue-400' : 'text-red-400'}`}>
+                    {msg.userId === user._id ? 'You' : msg.username}
+                  </span>
+                </div>
+                {msg.type === 'emote' ? (
+                  <div className="text-4xl animate-bounce duration-1000">
+                    {msg.message}
+                  </div>
+                ) : (
+                  <div className={`px-3 py-2 rounded-2xl text-sm max-w-[90%] wrap-break-word ${msg.userId === user._id ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-white/5 text-gray-200 rounded-tl-none'}`}>
+                    {msg.message}
+                  </div>
+                )}
+              </div>
+            ))}
+            <div ref={chatEndRef} />
+          </div>
+
+          {/* Emote Shortcuts */}
+          <div className="flex justify-around p-2 border-t border-white/5 bg-white/5">
+            {['👋', 'GG', '💡', '😮', '💀'].map(emoji => (
+              <button
+                key={emoji}
+                onClick={() => handleSendMessage(null, 'emote', emoji)}
+                className="hover:scale-125 transition-transform p-2 text-xl"
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+
+          {/* Input */}
+          <form onSubmit={handleSendMessage} className="p-4 border-t border-white/5 bg-[#0a0a0a]">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Send a message..."
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                className="w-full bg-white/5 border border-white/10 rounded-xl py-2 pl-3 pr-10 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500/50"
+              />
+              <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 text-blue-500 p-1">
+                <Send size={14} />
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 };

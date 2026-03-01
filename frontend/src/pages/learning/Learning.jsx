@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import Sidebar from '../../components/Sidebar';
+import MainLayout from '../../components/MainLayout';
 import { Search, ExternalLink, BookOpen, Code, Brain, ChevronRight, GraduationCap } from 'lucide-react';
 
 const TOPICS = [
@@ -79,8 +79,7 @@ export default function Learning() {
     };
 
     return (
-        <div className="flex h-screen bg-[#050505] text-white">
-            <Sidebar />
+        <MainLayout>
             <div className="flex-1 flex flex-col overflow-hidden">
                 {/* Header */}
                 <div className="p-8 border-b border-white/5 bg-[#0a0a0a]/50 backdrop-blur-xl">
@@ -212,6 +211,6 @@ export default function Learning() {
                     </div>
                 </div>
             </div>
-        </div>
+        </MainLayout>
     );
 }
