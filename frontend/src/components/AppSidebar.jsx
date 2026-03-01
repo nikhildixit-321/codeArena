@@ -1,7 +1,7 @@
 import React from "react"
 import {
     Home, Swords, Terminal, User, Settings,
-    Trophy, Target, Zap, LogOut, Hash
+    Trophy, Target, Zap, LogOut, Hash, GraduationCap
 } from "lucide-react"
 import { useLocation, Link, useNavigate } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
@@ -42,6 +42,13 @@ const groups = [
                 icon: Trophy,
                 color: "text-amber-400",
                 gradient: "from-amber-500/20 to-yellow-600/5"
+            },
+            {
+                title: "Learning",
+                url: "/learning",
+                icon: GraduationCap,
+                color: "text-emerald-400",
+                gradient: "from-emerald-500/20 to-teal-600/5"
             },
         ]
     },

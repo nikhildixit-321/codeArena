@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Home, Code, Swords, Terminal, User, Settings, BookText, Menu, X } from 'lucide-react';
+import { Home, Code, Swords, Terminal, User, Settings, BookText, Menu, X, GraduationCap } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   Tooltip,
@@ -99,6 +99,7 @@ const Sidebar = ({ isMobile = false }) => {
               <span className="text-xl font-bold text-white">CodeArena</span>
             </div>
             <SidebarItem to="/dashboard" icon={Home} label="Dashboard" isMobile={true} />
+            <SidebarItem to="/learning" icon={GraduationCap} label="Learning" isMobile={true} />
             <SidebarItem to="/practice" icon={BookText} label="Practice" isMobile={true} />
             <SidebarItem to="/matchmaking" icon={Swords} label="Battle" isMobile={true} />
             <SidebarItem to="/ide" icon={Terminal} label="IDE" isMobile={true} />
@@ -125,6 +126,7 @@ const Sidebar = ({ isMobile = false }) => {
       <nav className="flex-1 flex flex-col items-center gap-1 w-full">
         {/* Main */}
         <SidebarItem to="/dashboard" icon={Home} label="Dashboard" />
+        <SidebarItem to="/learning" icon={GraduationCap} label="Learning" />
         <SidebarItem to="/profile" icon={User} label="Profile" />
 
         <SectionDivider label="Arena" />
